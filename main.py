@@ -1,0 +1,27 @@
+import hydra
+from torch.utils.data import DataLoader
+
+from src import train
+from src.data import OpenCanopy, SingleImage
+
+
+@hydra.main(version_base=None, config_path="config", config_name="train")
+def main(cfg):
+    model = hydra.utils.instantiate(cfg.model)
+    optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
+    criterion = hydra.utils.instantiate(cfg.criterion)
+    opencanopy = OpenCanopy("datasets/canopy_height", split="train")
+    dataset = SingleImage(opencanopy[cfg.opencanopy_index][1])
+    dataloader = DataLoader(dataset, cfg.dataloader.batch_size, cfg.dataloader.shuffle)
+    train(
+        epochs=cfg.epochs,
+        dataloader=dataloader,
+        model=model,
+        criterion=criterion,
+        optimizer=optimizer,
+        device=cfg.device,
+    )
+
+
+if __name__ == "__main__":
+    main()

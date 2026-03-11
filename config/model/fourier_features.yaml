@@ -1,0 +1,7 @@
+_target_: src.models.RandomFourierFeatures
+in_features: 2
+fourier_features: 256
+hidden_features: 256
+hidden_layers: 3
+out_features: 1
+scale: 5
