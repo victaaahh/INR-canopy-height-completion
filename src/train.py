@@ -15,8 +15,8 @@ def train(
 ):
     for i in tqdm(range(epochs)):
         for input, target in dataloader:
-            input.to(device)
-            target.to(device)
+            input = input.to(device)
+            target = target.to(device)
             optimizer.zero_grad()
             output = model(input)
             loss = criterion(output, target)
