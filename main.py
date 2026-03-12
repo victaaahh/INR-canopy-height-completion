@@ -1,4 +1,5 @@
 import hydra
+import torch
 from torch.utils.data import DataLoader
 
 from src import train
@@ -13,13 +14,14 @@ def main(cfg):
     opencanopy = OpenCanopy("datasets/canopy_height", split="train")
     dataset = SingleImage(opencanopy[cfg.opencanopy_index][1], channel_dim=0)
     dataloader = DataLoader(dataset, cfg.dataloader.batch_size, cfg.dataloader.shuffle)
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     train(
         epochs=cfg.epochs,
         dataloader=dataloader,
         model=model,
         criterion=criterion,
         optimizer=optimizer,
-        device=cfg.device,
+        device=device,
     )
 
 

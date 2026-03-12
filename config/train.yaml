@@ -3,7 +3,6 @@ optimizer: ???
 epochs: 10
 criterion:
   _target_: torch.nn.MSELoss
-device: "cpu"
 dataloader:
   batch_size: 32
   shuffle: true
