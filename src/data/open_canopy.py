@@ -35,4 +35,4 @@ class OpenCanopy(Dataset):
             window = vrt.window(*geometry_proj.bounds)
             canopy_top_height = torch.tensor(vrt.read(1, window=window))
 
-        return torch.tensor(satelite_img), canopy_top_height
+        return torch.tensor(satelite_img), canopy_top_height[None, :, :]
