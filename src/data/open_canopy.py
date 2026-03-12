@@ -1,6 +1,7 @@
 import os
 
 import geopandas as gpd
+import numpy as np
 import rasterio
 import torch
 from torch.utils.data import Dataset
@@ -27,12 +28,17 @@ class OpenCanopy(Dataset):
             geometry_proj = geometry.to_crs(vrt.crs).iloc[0]
             window = vrt.window(*geometry_proj.bounds)
             satelite_img = torch.stack(
-                [torch.tensor(vrt.read(band, window=window)) for band in vrt.indexes],
+                [
+                    torch.tensor(vrt.read(band, window=window, out_dtype=np.float32))
+                    for band in vrt.indexes
+                ],
                 dim=0,
             )
         with rasterio.open(os.path.join(self.data_dir, f"{year}/lidar.vrt")) as vrt:
             geometry_proj = geometry.to_crs(vrt.crs).iloc[0]
             window = vrt.window(*geometry_proj.bounds)
-            canopy_top_height = torch.tensor(vrt.read(1, window=window))
+            canopy_top_height = torch.tensor(
+                vrt.read(1, window=window, out_dtype=np.float32)
+            )
 
         return torch.tensor(satelite_img), canopy_top_height[None, :, :]
