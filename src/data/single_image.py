@@ -1,7 +1,27 @@
 from typing import Optional
 
 import torch
-from torch.utils.data import TensorDataset
+from torch.utils.data import Dataset
+
+
+class CustomTensorDataset(Dataset):
+    """This Dataset class misuses the __getitems__ API and should be used
+    with an identity function as collate_fn in the DataLoader"""
+
+    def __init__(self, *tensors: torch.Tensor):
+        length = len(tensors[0])
+        for t in tensors:
+            assert len(t) == length, "tensors should have the same length"
+        self.tensors = tensors
+
+    def __len__(self) -> int:
+        return len(self.tensors[0])
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, ...]:
+        return tuple(tensor[index] for tensor in self.tensors)
+
+    def __getitems__(self, indices: list[int]) -> tuple[torch.Tensor, ...]:
+        return tuple(tensor[indices] for tensor in self.tensors)
 
 
 def single_image_dataset(
@@ -24,4 +44,4 @@ def single_image_dataset(
         coordinates = coordinates.to(device)
         pixel_values = pixel_values.to(device)
 
-    return TensorDataset(coordinates, pixel_values)
+    return CustomTensorDataset(coordinates, pixel_values)
