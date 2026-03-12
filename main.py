@@ -17,7 +17,9 @@ def main(cfg):
     optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
     criterion = hydra.utils.instantiate(cfg.criterion)
     opencanopy = OpenCanopy("datasets/canopy_height", split="train")
-    dataset = SingleImage(opencanopy[cfg.opencanopy_index][1], channel_dim=0)
+    dataset = SingleImage(
+        opencanopy[cfg.opencanopy_index][1], channel_dim=0, device=device
+    )
     dataloader = DataLoader(dataset, cfg.dataloader.batch_size, cfg.dataloader.shuffle)
     log.info(f"using device: {device}")
     train(
