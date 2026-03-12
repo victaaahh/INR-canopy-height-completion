@@ -1,6 +1,7 @@
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data.dataloader import DataLoader
+from tqdm import tqdm
 
 
 def train(
@@ -11,7 +12,7 @@ def train(
     optimizer: Optimizer,
     device,
 ):
-    for i in range(epochs):
+    for i in tqdm(range(epochs)):
         for input, target in dataloader:
             input.to(device)
             target.to(device)
