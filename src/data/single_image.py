@@ -19,5 +19,8 @@ class SingleImage(Dataset):
         ).reshape(-1, 2)
         self.pixel_values = torch.reshape(image, (-1, image.shape[2]))
 
+    def __len__(self):
+        return self.coordinates.shape[0]
+
     def __getitem__(self, index):
         return (self.coordinates[index], self.pixel_values[index])
