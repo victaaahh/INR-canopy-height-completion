@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 def train(
     epochs: int,
-    dataloader: Union[tuple[torch.Tensor, ...], DataLoader],
+    dataloader: Union[list[tuple[torch.Tensor, ...]], DataLoader],
     model: Module,
     criterion,
     optimizer: Optimizer,
