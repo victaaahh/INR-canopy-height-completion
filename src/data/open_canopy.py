@@ -27,7 +27,8 @@ class OpenCanopy(Dataset):
             geometry_proj = geometry.to_crs(vrt.crs).iloc[0]
             window = vrt.window(*geometry_proj.bounds)
             satelite_img = torch.stack(
-                [vrt.read(band, window=window) for band in vrt.indexes], dim=0
+                [torch.tensor(vrt.read(band, window=window)) for band in vrt.indexes],
+                dim=0,
             )
         with rasterio.open(os.path.join(self.data_dir, f"{year}/lidar.vrt")) as vrt:
             geometry_proj = geometry.to_crs(vrt.crs).iloc[0]
