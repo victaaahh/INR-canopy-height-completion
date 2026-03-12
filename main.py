@@ -21,7 +21,7 @@ def main(cfg):
         opencanopy[cfg.opencanopy_index][1], channel_dim=0, device=device
     )
     if cfg.dataloader.batch_size == "full":
-        dataloader = tuple(dataset.tensors)
+        dataloader = [dataset.tensors]
     else:
         dataloader = DataLoader(
             dataset,
