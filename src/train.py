@@ -1,3 +1,5 @@
+from typing import Union
+
 import torch
 from torch.nn import Module
 from torch.optim import Optimizer
@@ -7,7 +9,7 @@ from tqdm import tqdm
 
 def train(
     epochs: int,
-    dataloader: DataLoader,
+    dataloader: Union[tuple[torch.Tensor, ...], DataLoader],
     model: Module,
     criterion,
     optimizer: Optimizer,

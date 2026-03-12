@@ -20,12 +20,15 @@ def main(cfg):
     dataset = single_image_dataset(
         opencanopy[cfg.opencanopy_index][1], channel_dim=0, device=device
     )
-    dataloader = DataLoader(
-        dataset,
-        cfg.dataloader.batch_size,
-        cfg.dataloader.shuffle,
-        collate_fn=lambda x: x,  # CustomTensorDataset requires identity collate_fn
-    )
+    if cfg.dataloader.batch_size == "full":
+        dataloader = tuple(dataset.tensors)
+    else
+        dataloader = DataLoader(
+            dataset,
+            cfg.dataloader.batch_size,
+            cfg.dataloader.shuffle,
+            collate_fn=lambda x: x,  # CustomTensorDataset requires identity collate_fn
+        )
     log.info(f"using device: {device}")
     train(
         epochs=cfg.epochs,
