@@ -22,7 +22,7 @@ def main(cfg):
     )
     if cfg.dataloader.batch_size == "full":
         dataloader = tuple(dataset.tensors)
-    else
+    else:
         dataloader = DataLoader(
             dataset,
             cfg.dataloader.batch_size,
