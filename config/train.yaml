@@ -1,11 +1,16 @@
 run_group: code-test
-run_name: ${now:%Y-%m-%d}-${now:%H-%M-%S}
+run_name: ${now:%Y-%m-%d}T${now:%H:%M:%S}
 
-model: fourier_features
-optimizer: adam
+defaults:
+  - model: fourier_features
+  - optimizer: adam
+  - _self_
+
 epochs: 1000
+
 criterion:
   _target_: torch.nn.MSELoss
+
 data:
   opencanopy_index: 42
   test_grid_skip: 3
