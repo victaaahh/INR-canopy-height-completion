@@ -53,7 +53,7 @@ def single_image_dataset(
         for j in range(i % test_grid_skip, image_width, test_grid_skip):
             test_mask[i, j] = True
 
-    test_mask = test_mask.reshape(-1, 1)
+    test_mask = test_mask.flatten()
 
     test_coordinates = coordinates[test_mask]
     test_pixel_values = pixel_values[test_mask]

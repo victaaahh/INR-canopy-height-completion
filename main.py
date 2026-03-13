@@ -40,7 +40,7 @@ def main(cfg):
             cfg.data.dataloader.shuffle,
             collate_fn=lambda x: x,  # CustomTensorDataset requires identity collate_fn
         )
-    test_dataloader = [test_data]
+    test_dataloader = [test_data.tensors]
     log.info(f"using device: {device}")
     train(
         epochs=cfg.epochs,
