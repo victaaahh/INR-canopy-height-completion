@@ -1,8 +1,8 @@
 run_group: code-test
 run_name: ${now:%Y-%m-%d}-${now:%H-%M-%S}
 
-model: ???
-optimizer: ???
+model: fourier_features
+optimizer: adam
 epochs: 100
 criterion:
   _target_: torch.nn.MSELoss
