@@ -31,7 +31,7 @@ def single_image_dataset(
     test_grid_skip: int,
     sparsity: float,
     device: Optional[torch.device] = None,
-) -> tuple[Dataset, Dataset]:
+) -> tuple[CustomTensorDataset, CustomTensorDataset]:
     assert len(image.shape) == 3, "image should have channel, width and height dims"
     assert channel_dim in [0, 2], "invalid channel_dim"
     if channel_dim == 0:

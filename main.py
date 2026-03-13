@@ -24,25 +24,32 @@ def main(cfg):
     optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
     criterion = hydra.utils.instantiate(cfg.criterion)
     opencanopy = OpenCanopy("datasets/canopy_height", split="train")
-    dataset = single_image_dataset(
-        opencanopy[cfg.opencanopy_index][1], channel_dim=0, device=device
+    train_data, test_data = single_image_dataset(
+        opencanopy[cfg.opencanopy_index][1],
+        channel_dim=0,
+        test_grid_skip=cfg.data.test_grid_skip,
+        sparsity=cfg.data.sparsity,
+        device=device,
     )
-    if cfg.dataloader.batch_size == "full":
-        dataloader = [dataset.tensors]
+    if cfg.data.dataloader.batch_size == "full":
+        train_dataloader = [train_data.tensors]
     else:
-        dataloader = DataLoader(
-            dataset,
-            cfg.dataloader.batch_size,
-            cfg.dataloader.shuffle,
+        train_dataloader = DataLoader(
+            train_data,
+            cfg.data.dataloader.batch_size,
+            cfg.data.dataloader.shuffle,
             collate_fn=lambda x: x,  # CustomTensorDataset requires identity collate_fn
         )
+    test_dataloader = [test_data]
     log.info(f"using device: {device}")
     train(
         epochs=cfg.epochs,
-        dataloader=dataloader,
+        train_dataloader=train_dataloader,
+        test_dataloader=test_dataloader,
         model=model,
         criterion=criterion,
         optimizer=optimizer,
+        tracker=tracker,
         device=device,
     )
     tracker.finish()

@@ -6,10 +6,13 @@ optimizer: ???
 epochs: 100
 criterion:
   _target_: torch.nn.MSELoss
-dataloader:
-  batch_size: full
-  shuffle: true
-opencanopy_index: 42
+data:
+  opencanopy_index: 42
+  test_grid_skip: 3
+  sparsity: 0.5
+  dataloader:
+    batch_size: full # if batch_size is "full", a dataloader is not used at all
+    shuffle: true
 
 tracker:
   project: INR-canopy-height-completion
