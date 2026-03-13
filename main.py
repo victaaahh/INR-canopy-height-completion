@@ -6,12 +6,19 @@ from torch.utils.data import DataLoader
 
 from src import train
 from src.data import OpenCanopy, single_image_dataset
+from src.utils import Tracker
 
 log = logging.getLogger(__name__)
 
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg):
+    tracker = Tracker(
+        project=cfg.tracker.project,
+        group=cfg.tracker.group,
+        name=cfg.tracker.name,
+        config=cfg,
+    )
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = hydra.utils.instantiate(cfg.model).to(device)
     optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
@@ -38,6 +45,7 @@ def main(cfg):
         optimizer=optimizer,
         device=device,
     )
+    tracker.finish()
 
 
 if __name__ == "__main__":

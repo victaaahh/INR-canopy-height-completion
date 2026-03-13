@@ -1,9 +1,21 @@
+run_group: code-test
+run_name: ${now:%Y-%m-%d}-${now:%H-%M-%S}
+
 model: ???
 optimizer: ???
-epochs: 10
+epochs: 100
 criterion:
   _target_: torch.nn.MSELoss
 dataloader:
-  batch_size: 32
+  batch_size: full
   shuffle: true
 opencanopy_index: 42
+
+tracker:
+  project: INR-canopy-height-completion
+  group: ${run_group}
+  name: ${run_name}
+
+hydra:
+  run:
+    dir: ./outputs/${run_group}/${run_name}
