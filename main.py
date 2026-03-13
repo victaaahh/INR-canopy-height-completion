@@ -2,6 +2,7 @@ import logging
 
 import hydra
 import torch
+from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 
 from src import train
@@ -17,7 +18,7 @@ def main(cfg):
         project=cfg.tracker.project,
         group=cfg.tracker.group,
         name=cfg.tracker.name,
-        config=cfg,
+        config=OmegaConf.to_container(cfg, resolve=True),
     )
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = hydra.utils.instantiate(cfg.model).to(device)
