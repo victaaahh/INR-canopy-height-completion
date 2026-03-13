@@ -3,11 +3,7 @@ run_name: ${now:%Y-%m-%d}-${now:%H-%M-%S}
 
 model: fourier_features
 optimizer: adam
-<<<<<<< HEAD
-epochs: 100
-=======
 epochs: 1000
->>>>>>> dabe186 (Added fourier_features and adam optimizer to config for easier testing.)
 criterion:
   _target_: torch.nn.MSELoss
 data:
