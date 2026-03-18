@@ -26,7 +26,7 @@ def main(cfg):
     criterion = hydra.utils.instantiate(cfg.criterion)
     opencanopy = OpenCanopy("datasets/canopy_height", split="train")
     train_data, test_data = single_image_dataset(
-        opencanopy[cfg.opencanopy_index][1],
+        opencanopy[cfg.data.opencanopy_index][1],
         channel_dim=0,
         test_grid_skip=cfg.data.test_grid_skip,
         sparsity=cfg.data.sparsity,
