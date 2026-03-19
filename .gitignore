@@ -13,3 +13,4 @@ wheels/
 datasets/
 outputs/
 multirun/
+wandb/

@@ -1,12 +1,12 @@
-import trackio
+import wandb
 
 
 class Tracker:
     def __init__(self, project, group, name, config):
-        trackio.init(project=project, group=group, name=name, config=config)
+        wandb.init(project=project, group=group, name=name, config=config)
 
     def log_metrics(self, metrics):
-        trackio.log(metrics)
+        wandb.log(metrics)
 
     def finish(self):
-        trackio.finish()
+        wandb.finish()
