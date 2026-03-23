@@ -1,1 +1,1 @@
-from src.train import train
+from src.inr import SparseImageINR
