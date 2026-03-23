@@ -10,8 +10,13 @@ class Tracker:
     def log_metrics(self, metrics):
         self.run.log(metrics)
 
-    def log_table(self, dataframe):
-        self.run.log({"results": wandb.Table(dataframe=dataframe)})
+    def log_tables(self, dataframe_dict):
+        table_dict = {name: wandb.Table(dataframe=df) for name, df in dataframe_dict}
+        self.run.log(table_dict)
+
+    def log_images(self, image_dict):
+        image_dict = {name: wandb.Image(image) for name, image in image_dict}
+        self.run.log(image_dict)
 
     def finish(self):
         self.run.finish()
