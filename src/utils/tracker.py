@@ -10,5 +10,8 @@ class Tracker:
     def log_metrics(self, metrics):
         self.run.log(metrics)
 
+    def log_table(self, dataframe):
+        self.run.log({"results": wandb.Table(dataframe=dataframe)})
+
     def finish(self):
         self.run.finish()
