@@ -31,7 +31,7 @@ def single_image_dataset(
     test_grid_skip: int,
     sparsity: float,
     device: Optional[torch.device] = None,
-) -> tuple[CustomTensorDataset, CustomTensorDataset]:
+) -> tuple[CustomTensorDataset, CustomTensorDataset, torch.Tensor, torch.Tensor]:
     assert len(image.shape) == 3, "image should have channel, width and height dims"
     assert channel_dim in [0, 2], "invalid channel_dim"
     if channel_dim == 0:
@@ -73,7 +73,12 @@ def single_image_dataset(
         test_coordinates = test_coordinates.to(device)
         test_pixel_values = test_pixel_values.to(device)
 
+    full_train_mask = torch.zeros(image_width * image_width).to(torch.bool)
+    full_train_mask[torch.where(~test_mask)[0][train_mask]] = True
+
     return (
         CustomTensorDataset(train_coordinates, train_pixel_values),
         CustomTensorDataset(test_coordinates, test_pixel_values),
+        full_train_mask.reshape(image_width, image_width),
+        test_mask.reshape(image_width, image_width),
     )
