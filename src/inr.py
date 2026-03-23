@@ -137,6 +137,7 @@ class SparseImageINR:
                 train_loss += loss.item()
                 loss.backward()
                 self.optimizer.step()
+            train_loss /= len(self.train_dataloader)
 
             if self.tracker is not None:
                 test_loss = self.evaluate()
@@ -152,4 +153,5 @@ class SparseImageINR:
                 output = self.model(input_)
                 loss = self.criterion(output, target)
                 test_loss += loss.item()
+            test_loss /= len(self.test_dataloader)
         return test_loss
