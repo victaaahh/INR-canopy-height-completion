@@ -1,12 +1,12 @@
 import logging
 
 import hydra
+import pandas as pd
 import torch
 from omegaconf import OmegaConf
-from torch.utils.data import DataLoader
 
-from src import train
-from src.data import OpenCanopy, single_image_dataset
+from src import SparseImageINR
+from src.data import OpenCanopy
 from src.utils import Tracker
 
 log = logging.getLogger(__name__)
@@ -14,46 +14,63 @@ log = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg):
-    tracker = Tracker(
-        project=cfg.tracker.project,
-        group=cfg.tracker.group,
-        name=cfg.tracker.name,
-        config=OmegaConf.to_container(cfg, resolve=True),
-    )
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = hydra.utils.instantiate(cfg.model).to(device)
-    optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
-    criterion = hydra.utils.instantiate(cfg.criterion)
-    opencanopy = OpenCanopy("datasets/canopy_height", split="train")
-    train_data, test_data = single_image_dataset(
-        opencanopy[cfg.data.opencanopy_index][1],
-        channel_dim=0,
-        test_grid_skip=cfg.data.test_grid_skip,
-        sparsity=cfg.data.sparsity,
-        device=device,
-    )
-    if cfg.data.dataloader.batch_size == "full":
-        train_dataloader = [train_data.tensors]
-    else:
-        train_dataloader = DataLoader(
-            train_data,
-            cfg.data.dataloader.batch_size,
-            cfg.data.dataloader.shuffle,
-            collate_fn=lambda x: x,  # CustomTensorDataset requires identity collate_fn
+    if not cfg.tracker.per_image:
+        global_tracker = Tracker(
+            project=cfg.tracker.project,
+            group=cfg.tracker.group,
+            name=cfg.tracker.name,
+            config=OmegaConf.to_container(cfg, resolve=True),
         )
-    test_dataloader = [test_data.tensors]
+    else:
+        global_tracker = None
+    opencanopy = OpenCanopy("datasets/canopy_height", split="train")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     log.info(f"using device: {device}")
-    train(
-        epochs=cfg.epochs,
-        train_dataloader=train_dataloader,
-        test_dataloader=test_dataloader,
-        model=model,
-        criterion=criterion,
-        optimizer=optimizer,
-        tracker=tracker,
-        device=device,
-    )
-    tracker.finish()
+    criterion = hydra.utils.instantiate(cfg.criterion)
+    results = {"train_losses": [], "test_losses": []}
+    for i in cfg.data.opencanopy_indices:
+        _, target = opencanopy[i]
+        model = hydra.utils.instantiate(cfg.model).to(device)
+        optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
+        if cfg.tracker.per_image:
+            tracker = Tracker(
+                project=cfg.tracker.project,
+                group=cfg.tracker.group,
+                name=cfg.tracker.name + f"_{i}",
+                config=OmegaConf.to_container(cfg, resolve=True),
+            )
+        else:
+            tracker = None
+
+        inr = SparseImageINR(
+            target_image=target,
+            channel_dim=0,
+            sparsity=cfg.data.sparsity,
+            test_grid_skip=cfg.data.test_grid_skip,
+            model=model,
+            optimizer=optimizer,
+            criterion=criterion,
+            batch_size=cfg.data.dataloader.batch_size,
+            shuffle=cfg.data.dataloader.shuffle,
+            device=device,
+            tracker=tracker,
+        )
+        train_loss = inr.fit(cfg.data.epochs)
+        test_loss = inr.evaluate()
+        results["train_losses"].append(train_loss)
+        results["test_losses"].append(test_loss)
+
+        if cfg.tracker.log_images:
+            assert tracker is not None, "Can't log images when per_image=False"
+            sparse = inr.sparse_target
+            reconstructed = inr.reconstructed_target
+            tracker.log_images(
+                {"sparse target": sparse, "reconstructed target": reconstructed}
+            )
+
+    if global_tracker is not None:
+        table = pd.DataFrame(results)
+        global_tracker.log_tables({"results": table})
 
 
 if __name__ == "__main__":

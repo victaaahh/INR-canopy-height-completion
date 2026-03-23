@@ -12,7 +12,7 @@ criterion:
   _target_: torch.nn.MSELoss
 
 data:
-  opencanopy_index: 42
+  opencanopy_indices: [42, 262, 488, 819, 1043]
   test_grid_skip: 3
   sparsity: 0.5
   dataloader:
@@ -20,6 +20,8 @@ data:
     shuffle: true
 
 tracker:
+  per_image: true
+  log_images: true
   project: INR-canopy-height-completion
   group: ${run_group}
   name: ${run_name}
