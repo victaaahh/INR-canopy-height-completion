@@ -124,7 +124,7 @@ class SparseImageINR:
         else:
             return self._reconstructed_target
 
-    def fit(self, epochs: int):
+    def fit(self, epochs: int) -> float:
         self._reconstructed_target = None
         train_loss = 0.0  # initialize variable to avoid "possibly unbound" warning
         for _ in tqdm(range(epochs)):
@@ -144,6 +144,8 @@ class SparseImageINR:
                 self.tracker.log_metrics(
                     {"train_loss": train_loss, "test_loss": test_loss}
                 )
+
+        return train_loss
 
     def evaluate(self) -> float:
         self.model.eval()
