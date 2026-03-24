@@ -21,8 +21,8 @@ def plot_height_map(
 ) -> Figure:
     plt.figure()
     plt.imshow(image, cmap="gray")
+    plt.colorbar()
     if mask is not None:
         plt.imshow(mask_to_alpha_image(mask, red=1.0, green=0.0, blue=0.0))
     plt.title(title)
-    plt.colorbar()
     return plt.gcf()
