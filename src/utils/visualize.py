@@ -2,7 +2,7 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import torch
-from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 
 def mask_to_alpha_image(
@@ -18,11 +18,11 @@ def mask_to_alpha_image(
 
 def plot_height_map(
     image: torch.Tensor, title: str, mask: Optional[torch.Tensor] = None
-):
-    plt.figure()
-    plt.imshow(image, cmap="gray")
-    plt.colorbar()
+) -> Figure:
+    fig, ax = plt.subplots()
+    imgax = ax.imshow(image, cmap="gray")
+    fig.colorbar(imgax)
     if mask is not None:
-        plt.imshow(mask_to_alpha_image(mask, red=1.0, green=0.0, blue=0.0))
-    plt.title(title)
-    return plt
+        ax.imshow(mask_to_alpha_image(mask, red=1.0, green=0.0, blue=0.0))
+    ax.set_title(title)
+    return fig
