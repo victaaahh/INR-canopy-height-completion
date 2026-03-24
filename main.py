@@ -66,7 +66,7 @@ def main(cfg):
             sparse_mask = inr.train_mask
             reconstructed = inr.reconstructed_target.permute((1, 2, 0))
             eval_grid_mask = inr.test_mask
-            tracker.log_images(
+            tracker.log_plots(
                 {
                     "images": [
                         plot_height_map(original, "original"),
