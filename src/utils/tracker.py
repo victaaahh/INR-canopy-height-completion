@@ -20,5 +20,8 @@ class Tracker:
         image_dict = {name: wandb.Image(image) for name, image in image_dict.items()}
         self.run.log(image_dict)
 
+    def log_plots(self, plot_dict):
+        self.run.log(plot_dict)
+
     def finish(self):
         self.run.finish()
