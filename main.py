@@ -7,7 +7,7 @@ from omegaconf import OmegaConf
 
 from src import SparseImageINR
 from src.data import OpenCanopy
-from src.utils import Tracker
+from src.utils import Tracker, plot_height_map
 
 log = logging.getLogger(__name__)
 
@@ -62,10 +62,19 @@ def main(cfg):
 
         if cfg.tracker.log_images:
             assert tracker is not None, "Can't log images when per_image=False"
-            sparse = inr.sparse_target
-            reconstructed = inr.reconstructed_target
+            original = inr.target_image.permute((1, 2, 0))
+            sparse_mask = inr.train_mask
+            reconstructed = inr.reconstructed_target.permute((1, 2, 0))
+            eval_grid_mask = inr.test_mask
             tracker.log_images(
-                {"sparse target": sparse, "reconstructed target": reconstructed}
+                {
+                    "images": [
+                        plot_height_map(original, "original"),
+                        plot_height_map(original, "sparse", mask=sparse_mask),
+                        plot_height_map(reconstructed, "reconstructed"),
+                        plot_height_map(original, "eval grid", mask=eval_grid_mask),
+                    ]
+                }
             )
 
         if tracker is not None:

@@ -83,26 +83,6 @@ class SparseImageINR:
             return self._target_image
 
     @property
-    def sparse_target(self) -> torch.Tensor:
-        if self._sparse_target is None:
-            self._sparse_target = self._target_image.detach().clone()
-            self._sparse_target[~self.train_mask] = torch.zeros(self._target_channels)
-        if self.channel_dim == 0:
-            return self._sparse_target.permute(2, 0, 1)
-        else:
-            return self._sparse_target
-
-    @property
-    def target_eval_grid(self) -> torch.Tensor:
-        if self._target_eval_grid is None:
-            self._target_eval_grid = self._target_image.detach().clone()
-            self._target_eval_grid[~self.test_mask] = torch.zeros(self._target_channels)
-        if self.channel_dim == 0:
-            return self._target_eval_grid.permute(2, 0, 1)
-        else:
-            return self._target_eval_grid
-
-    @property
     def reconstructed_target(self) -> torch.Tensor:
         if self._reconstructed_target is None:
             coord_range = torch.linspace(-1, 1, self._target_width)
