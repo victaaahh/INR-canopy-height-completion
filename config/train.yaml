@@ -15,9 +15,10 @@ data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
   test_grid_skip: 3
   sparsity: 0.5
-  dataloader:
-    batch_size: full # if batch_size is "full", a dataloader is not used at all
-    shuffle: true
+
+dataloader:
+  batch_size: full # if batch_size is "full", a dataloader is not used at all
+  shuffle: true
 
 tracker:
   per_image: true

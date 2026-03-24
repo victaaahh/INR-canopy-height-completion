@@ -50,12 +50,12 @@ def main(cfg):
             model=model,
             optimizer=optimizer,
             criterion=criterion,
-            batch_size=cfg.data.dataloader.batch_size,
-            shuffle=cfg.data.dataloader.shuffle,
+            batch_size=cfg.dataloader.batch_size,
+            shuffle=cfg.dataloader.shuffle,
             device=device,
             tracker=tracker,
         )
-        train_loss = inr.fit(cfg.data.epochs)
+        train_loss = inr.fit(cfg.epochs)
         test_loss = inr.evaluate()
         results["train_losses"].append(train_loss)
         results["test_losses"].append(test_loss)
