@@ -68,9 +68,13 @@ def main(cfg):
                 {"sparse target": sparse, "reconstructed target": reconstructed}
             )
 
+        if tracker is not None:
+            tracker.finish()
+
     if global_tracker is not None:
         table = pd.DataFrame(results)
         global_tracker.log_tables({"results": table})
+        global_tracker.finish()
 
 
 if __name__ == "__main__":
