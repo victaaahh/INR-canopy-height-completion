@@ -1,0 +1,32 @@
+run_group: code-test2
+run_name: ${now:%Y-%m-%d}T${now:%H:%M:%S}
+
+defaults:
+  - model: fourier_features
+  - optimizer: adam
+  - _self_
+
+epochs: 1000
+
+criterion:
+  _target_: torch.nn.MSELoss
+
+data:
+  opencanopy_indices: [42, 262, 488, 819, 1043]
+  test_grid_skip: 3
+  sparsity: 0.5
+
+dataloader:
+  batch_size: full # if batch_size is "full", a dataloader is not used at all
+  shuffle: true
+
+tracker:
+  per_image: true
+  log_images: true
+  project: INR-canopy-height-completion
+  group: ${run_group}
+  name: ${run_name}
+
+hydra:
+  run:
+    dir: ./outputs/${run_group}/${run_name}
