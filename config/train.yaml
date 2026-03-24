@@ -1,4 +1,4 @@
-run_group: code-test
+run_group: code-test2
 run_name: ${now:%Y-%m-%d}T${now:%H:%M:%S}
 
 defaults:
