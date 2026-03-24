@@ -16,12 +16,12 @@ class Tracker:
         }
         self.run.log(table_dict)
 
-    def log_images(self, image_dict):
-        image_dict = {name: wandb.Image(image) for name, image in image_dict.items()}
+    def log_images(self, image_dict: dict[str, list]):
+        image_dict = {
+            name: [wandb.Image(image) for image in imagelist]
+            for name, imagelist in image_dict.items()
+        }
         self.run.log(image_dict)
-
-    def log_plots(self, plot_dict):
-        self.run.log(plot_dict)
 
     def finish(self):
         self.run.finish()
