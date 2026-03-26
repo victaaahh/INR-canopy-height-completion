@@ -14,6 +14,7 @@ class SparseImageINR:
     def __init__(
         self,
         target_image: torch.Tensor,
+        normalize_image: bool,
         channel_dim: int,
         sparsity: float,
         test_grid_skip: int,
@@ -38,6 +39,9 @@ class SparseImageINR:
         )
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
+
+        if normalize_image:
+            self._target_image /= self._target_image.max()
 
         self.channel_dim = channel_dim
         self.sparsity = sparsity

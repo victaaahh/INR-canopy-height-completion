@@ -13,6 +13,7 @@ criterion:
 
 data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
+  normalize_image: true
   test_grid_skip: 3
   sparsity: 0.5
 
