@@ -20,9 +20,9 @@ def plot_height_map(
     image: torch.Tensor, title: str, mask: Optional[torch.Tensor] = None
 ) -> Figure:
     fig, ax = plt.subplots()
-    imgax = ax.imshow(image, cmap="gray")
+    imgax = ax.imshow(image, cmap="summer")
     fig.colorbar(imgax)
     if mask is not None:
-        ax.imshow(mask_to_alpha_image(mask, red=1.0, green=0.0, blue=0.0))
+        ax.imshow(mask_to_alpha_image(mask, red=0.0, green=0.0, blue=0.0))
     ax.set_title(title)
     return fig
