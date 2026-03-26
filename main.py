@@ -84,6 +84,7 @@ def main(cfg):
         table = pd.DataFrame(results)
         global_tracker.log_tables({"results": table})
         global_tracker.finish()
+        return table["test_losses"].mean()
 
 
 if __name__ == "__main__":

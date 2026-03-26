@@ -1,0 +1,11 @@
+# @package @_global_
+
+defaults:
+  - optuna
+  - _self_
+
+model:
+  scale: interval(0.1, 10)
+
+optimizer:
+  lr: tag(log, interval(0.000001, 0.01)
