@@ -41,8 +41,10 @@ class SparseImageINR:
         self._target_width = self._target_image.shape[1]
 
         if normalize_image:
-            self._target_image /= self._target_image.max()
+            self._max_val = self._target_image.max()
+            self._target_image /= self._max_val
 
+        self.normalize_image = normalize_image
         self.channel_dim = channel_dim
         self.sparsity = sparsity
         self.test_grid_skip = test_grid_skip
@@ -81,10 +83,15 @@ class SparseImageINR:
 
     @property
     def target_image(self) -> torch.Tensor:
+        to_return = self._target_image
+
+        if self.normalize_image:
+            to_return *= self._max_val
+
         if self.channel_dim == 0:
-            return self._target_image.permute(2, 0, 1)
-        else:
-            return self._target_image
+            to_return = to_return.permute(2, 0, 1)
+
+        return to_return
 
     @property
     def reconstructed_target(self) -> torch.Tensor:
@@ -103,10 +110,15 @@ class SparseImageINR:
                 self._target_width, self._target_width, self._target_channels
             )
 
+        to_return = self._reconstructed_target
+
+        if self.normalize_image:
+            to_return *= self._max_val
+
         if self.channel_dim == 0:
-            return self._reconstructed_target.permute(2, 0, 1)
-        else:
-            return self._reconstructed_target
+            to_return = to_return.permute(2, 0, 1)
+
+        return to_return
 
     def fit(self, epochs: int) -> float:
         self._reconstructed_target = None
