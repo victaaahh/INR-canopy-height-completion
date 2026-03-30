@@ -1,0 +1,11 @@
+# @package @_global_
+
+defaults:
+  - optuna
+  - _self_
+
+hydra:
+  sweeper:
+    params:
+      model.scale: interval(1, 20)
+      optimizer.lr: tag(log, interval(0.00001, 0.01))

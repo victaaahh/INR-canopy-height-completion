@@ -44,6 +44,7 @@ def main(cfg):
 
         inr = SparseImageINR(
             target_image=target,
+            normalize_image=cfg.data.normalize_image,
             channel_dim=0,
             sparsity=cfg.data.sparsity,
             test_grid_skip=cfg.data.test_grid_skip,
@@ -84,6 +85,7 @@ def main(cfg):
         table = pd.DataFrame(results)
         global_tracker.log_tables({"results": table})
         global_tracker.finish()
+        return table["test_losses"].mean()
 
 
 if __name__ == "__main__":
