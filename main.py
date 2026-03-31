@@ -100,6 +100,10 @@ def main(cfg):
     if global_tracker is not None:
         table = pd.DataFrame(results)
         global_tracker.log_tables({"results": table})
+        summary = {
+            f"mean_{name}": torch.tensor(vals).mean() for name, vals in results.items()
+        }
+        global_tracker.summarize(summary)
         global_tracker.finish()
         return table["test_losses"].mean()
 

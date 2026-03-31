@@ -1,3 +1,5 @@
+from typing import Any
+
 import wandb
 
 
@@ -22,6 +24,10 @@ class Tracker:
             for name, imagelist in image_dict.items()
         }
         self.run.log(image_dict)
+
+    def summarize(self, summary: dict[str, Any]):
+        for key, val in summary.items():
+            self.run.summary[key] = val
 
     def finish(self):
         self.run.finish()
