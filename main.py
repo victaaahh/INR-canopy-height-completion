@@ -7,7 +7,8 @@ from omegaconf import OmegaConf
 
 from src import SparseImageINR
 from src.data import OpenCanopy
-from src.utils import Tracker, plot_height_map
+from src.utils import Tracker
+from src.utils.visualize import plot_height_map
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +28,17 @@ def main(cfg):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     log.info(f"using device: {device}")
     criterion = hydra.utils.instantiate(cfg.criterion)
-    results = {"train_losses": [], "test_losses": []}
+    metrics_dict = {
+        name: hydra.utils.instantiate(metric)
+        for metric_entry in cfg.metrics
+        for name, metric in metric_entry.items()
+    }
+    results = {
+        "train_losses": [],
+        **{f"train_{name}": [] for name, _ in metrics_dict.items()},
+        "test_losses": [],
+        **{f"test_{name}": [] for name, _ in metrics_dict.items()},
+    }
     for i in cfg.data.opencanopy_indices:
         _, target = opencanopy[i]
         model = hydra.utils.instantiate(cfg.model).to(device)
@@ -51,15 +62,20 @@ def main(cfg):
             model=model,
             optimizer=optimizer,
             criterion=criterion,
+            metrics=metrics_dict,
             batch_size=cfg.dataloader.batch_size,
             shuffle=cfg.dataloader.shuffle,
             device=device,
             tracker=tracker,
         )
-        train_loss = inr.fit(cfg.epochs)
-        test_loss = inr.evaluate()
+        train_loss, train_metrics = inr.fit(cfg.epochs)
+        test_loss, test_metrics = inr.evaluate()
         results["train_losses"].append(train_loss)
         results["test_losses"].append(test_loss)
+        for name, val in train_metrics.items():
+            results[f"train_{name}"].append(val)
+        for name, val in test_metrics.items():
+            results[f"test_{name}"].append(val)
 
         if cfg.tracker.log_images:
             assert tracker is not None, "Can't log images when per_image=False"

@@ -125,50 +125,50 @@ class SparseImageINR:
 
     def fit(self, epochs: int) -> tuple[float, dict[str, float]]:
         self._reconstructed_target = None
-        train_loss = 0.0  # initialize variables to avoid "possibly unbound" warning
-        metrics_values = {f"train_{name}": 0.0 for name, _ in self.metrics.items()}
+        epoch_loss = 0.0  # initialize variables to avoid "possibly unbound" warning
+        metrics_values = {name: 0.0 for name, _ in self.metrics.items()}
         for _ in tqdm(range(epochs)):
             self.model.train()
-            train_loss = 0.0
-            metrics_values = {f"train_{name}": 0.0 for name, _ in self.metrics.items()}
+            epoch_loss = 0.0
+            metrics_values = {name: 0.0 for name, _ in self.metrics.items()}
             for input_, target in self.train_dataloader:
                 self.optimizer.zero_grad()
                 output = self.model(input_)
                 loss = self.criterion(output, target)
-                train_loss += loss.item()
+                epoch_loss += loss.item()
                 for name, metric in self.metrics.items():
-                    metrics_values[f"train_{name}"] += metric(output, target).item()
+                    metrics_values[name] += metric(output, target).item()
                 loss.backward()
                 self.optimizer.step()
-            train_loss /= len(self.train_dataloader)
+            epoch_loss /= len(self.train_dataloader)
             for name in self.metrics:
-                metrics_values[f"train_{name}"] /= len(self.test_dataloader)
+                metrics_values[name] /= len(self.test_dataloader)
 
             if self.tracker is not None:
                 test_loss, eval_metrics = self.evaluate()
                 self.tracker.log_metrics(
                     {
-                        "train_loss": train_loss,
-                        **metrics_values,
+                        "train_loss": epoch_loss,
+                        **{f"train_{name}": v for name, v in metrics_values.items()},
                         "test_loss": test_loss,
-                        **eval_metrics,
+                        **{f"test_{name}": v for name, v in eval_metrics.items()},
                     }
                 )
 
-        return train_loss, metrics_values
+        return epoch_loss, metrics_values
 
     def evaluate(self) -> tuple[float, dict[str, float]]:
         self.model.eval()
-        test_loss = 0.0
-        metrics_values = {f"test_{name}": 0.0 for name, _ in self.metrics.items()}
+        epoch_loss = 0.0
+        metrics_values = {name: 0.0 for name, _ in self.metrics.items()}
         with torch.no_grad():
             for input_, target in self.test_dataloader:
                 output = self.model(input_)
                 loss = self.criterion(output, target)
-                test_loss += loss.item()
+                epoch_loss += loss.item()
                 for name, metric in self.metrics.items():
-                    metrics_values[f"test_{name}"] += metric(output, target).item()
-            test_loss /= len(self.test_dataloader)
+                    metrics_values[name] += metric(output, target).item()
+            epoch_loss /= len(self.test_dataloader)
             for name in self.metrics:
-                metrics_values[f"test_{name}"] /= len(self.test_dataloader)
-        return test_loss, metrics_values
+                metrics_values[name] /= len(self.test_dataloader)
+        return epoch_loss, metrics_values
