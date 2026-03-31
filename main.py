@@ -4,6 +4,7 @@ import hydra
 import pandas as pd
 import torch
 from omegaconf import OmegaConf
+from torchvision.transforms.v2 import CenterCrop
 
 from src import SparseImageINR
 from src.data import OpenCanopy
@@ -25,6 +26,7 @@ def main(cfg):
     else:
         global_tracker = None
     opencanopy = OpenCanopy("datasets/canopy_height", split="train")
+    centercrop = CenterCrop(512)
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     log.info(f"using device: {device}")
     criterion = hydra.utils.instantiate(cfg.criterion)
@@ -41,6 +43,7 @@ def main(cfg):
     }
     for i in cfg.data.opencanopy_indices:
         _, target = opencanopy[i]
+        target = centercrop(target)
         model = hydra.utils.instantiate(cfg.model).to(device)
         optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
         if cfg.tracker.per_image:
