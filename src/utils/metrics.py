@@ -10,7 +10,7 @@ class PSNR(nn.Module):
 
     def forward(self, predictions: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         mse = self.mse(predictions, target)
-        psnr = 20 * torch.log10(torch.Tensor(self.data_range)) - 10 * torch.log10(mse)
+        psnr = 20 * torch.log10(torch.tensor(self.data_range)) - 10 * torch.log10(mse)
         return psnr
 
 
