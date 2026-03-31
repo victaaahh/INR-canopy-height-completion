@@ -42,8 +42,9 @@ class SparseImageINR:
         self._target_width = self._target_image.shape[1]
 
         if normalize_image:
-            self._max_val = self._target_image.max()
-            self._target_image /= self._max_val
+            self._shift = self._target_image.min()
+            self._scale = self._target_image.max() - self._shift
+            self._target_image = (self._target_image - self._shift) / self._scale
 
         self.normalize_image = normalize_image
         self.channel_dim = channel_dim
@@ -88,7 +89,7 @@ class SparseImageINR:
         to_return = self._target_image
 
         if self.normalize_image:
-            to_return *= self._max_val
+            to_return = to_return * self._scale + self._shift
 
         if self.channel_dim == 0:
             to_return = to_return.permute(2, 0, 1)
@@ -115,7 +116,7 @@ class SparseImageINR:
         to_return = self._reconstructed_target
 
         if self.normalize_image:
-            to_return *= self._max_val
+            to_return = to_return * self._scale + self._shift
 
         if self.channel_dim == 0:
             to_return = to_return.permute(2, 0, 1)
