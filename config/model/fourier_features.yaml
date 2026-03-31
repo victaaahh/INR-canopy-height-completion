@@ -4,4 +4,4 @@ fourier_features: 256
 hidden_features: 256
 hidden_layers: 3
 out_features: 1
-scale: 5
+scale: 6.3345
