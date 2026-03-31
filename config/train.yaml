@@ -11,9 +11,22 @@ epochs: 1000
 criterion:
   _target_: torch.nn.MSELoss
 
+metrics:
+  - PSNR:
+      _target_: src.utils.metrics.PSNR
+      data_range: 1.0 # should be 1 if normalizing images
+  - RMSE:
+      _target_: src.utils.metrics.RMSE
+  - MAE:
+      _target_: torch.nn.L1Loss
+  - ME:
+      _target_: src.utils.metrics.ME
+  - R2:
+      _target_: src.utils.metrics.R2
+
 data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
-  normalize_image: true
+  normalize_image: true # data range in metrics should match choice here
   test_grid_skip: 3
   sparsity: 0.5
 
