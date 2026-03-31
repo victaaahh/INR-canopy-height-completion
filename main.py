@@ -34,6 +34,7 @@ def main(cfg):
         for name, metric in metric_entry.items()
     }
     results = {
+        "opencanopy_idx": list(cfg.data.opencanopy_indices),
         "train_losses": [],
         **{f"train_{name}": [] for name, _ in metrics_dict.items()},
         "test_losses": [],
