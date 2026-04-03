@@ -1,4 +1,4 @@
-run_group: code-test2
+run_group: ???
 run_name: ${now:%Y-%m-%d}T${now:%H:%M:%S}
 
 defaults:
@@ -44,3 +44,6 @@ tracker:
 hydra:
   run:
     dir: ./outputs/${run_group}/${run_name}
+  sweep:
+    dir: ./outputs/${run_group}
+    subdir: ${run_name}
