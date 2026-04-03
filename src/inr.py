@@ -1,3 +1,4 @@
+import logging
 from typing import Callable, Literal, Optional, Union
 
 import torch
@@ -8,6 +9,8 @@ from tqdm import tqdm
 
 from src.data import single_image_dataset
 from src.utils import Tracker
+
+log = logging.getLogger(__name__)
 
 
 class SparseImageINR:
@@ -70,6 +73,11 @@ class SparseImageINR:
         if batch_size == "full":
             self.train_dataloader = [self.train_pixels.tensors]
         else:
+            log.warning(
+                "Training metrics are probably computed slightly wrong, \
+                 since it is assumed that all batches have same size, but \
+                 the last one might not"
+            )
             self.train_dataloader = DataLoader(
                 self.train_pixels,
                 batch_size,
