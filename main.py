@@ -42,7 +42,7 @@ def main(cfg):
         results = results | {
             "target_image": [],
             "train_mask": [],
-            "reconstructed_image": [],
+            "reconstructed_target": [],
             "test_mask": [],
         }
     for i in cfg.data.opencanopy_indices:
