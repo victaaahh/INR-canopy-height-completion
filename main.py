@@ -71,7 +71,7 @@ def main(cfg):
         if test_losses is not None and all_test_metrics is not None:
             test_loss, test_metrics = (
                 test_losses[-1],
-                {name: vals[-1] for name, vals in all_test_metrics},
+                {name: vals[-1] for name, vals in all_test_metrics.items()},
             )
         else:
             test_loss, test_metrics = inr.evaluate()
