@@ -33,9 +33,9 @@ def main(cfg):
     }
     if cfg.save_running_metrics:
         results = results | {
-            "train_losses": [],
+            "all_train_loss": [],
             **{f"all_train_{name}": [] for name in metrics_dict},
-            "test_losses": [],
+            "all_test_loss": [],
             **{f"all_test_{name}": [] for name in metrics_dict},
         }
     if cfg.save_images:
@@ -65,18 +65,18 @@ def main(cfg):
             shuffle=cfg.dataloader.shuffle,
             device=device,
         )
-        train_losses, all_train_metrics, test_losses, all_test_metrics = inr.fit(
+        all_train_loss, all_train_metrics, all_test_loss, all_test_metrics = inr.fit(
             cfg.epochs, return_test_metrics=cfg.save_running_metrics
         )
-        if test_losses is not None and all_test_metrics is not None:
+        if all_test_loss is not None and all_test_metrics is not None:
             test_loss, test_metrics = (
-                test_losses[-1],
+                all_test_loss[-1],
                 {name: vals[-1] for name, vals in all_test_metrics.items()},
             )
         else:
             test_loss, test_metrics = inr.evaluate()
 
-        results["train_loss"].append(train_losses[-1])
+        results["train_loss"].append(all_train_loss[-1])
         results["test_loss"].append(test_loss)
         for name, vals in all_train_metrics.items():
             results[f"train_{name}"].append(vals[-1])
@@ -84,8 +84,8 @@ def main(cfg):
             results[f"test_{name}"].append(val)
 
         if all_test_metrics is not None:
-            results["train_losses"].append(train_losses)
-            results["test_losses"].append(test_losses)
+            results["all_train_loss"].append(all_train_loss)
+            results["all_test_loss"].append(all_test_loss)
             for name, val in all_train_metrics.items():
                 results[f"all_train_{name}"].append(val)
             for name, val in all_test_metrics.items():
