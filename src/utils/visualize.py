@@ -13,7 +13,7 @@ def mask_to_alpha_image(
     red_channel = torch.ones(mask.shape) * red
     green_channel = torch.ones(mask.shape) * green
     blue_channel = torch.ones(mask.shape) * blue
-    return torch.stack((red_channel, green_channel, blue_channel, mask), dim=-1)
+    return torch.stack((red_channel, green_channel, blue_channel, ~mask), dim=-1)
 
 
 def plot_height_map(

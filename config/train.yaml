@@ -1,4 +1,4 @@
-run_group: code-test2
+run_group: ???
 run_name: ${now:%Y-%m-%d}T${now:%H:%M:%S}
 
 defaults:
@@ -7,6 +7,8 @@ defaults:
   - _self_
 
 epochs: 1000
+save_images: true
+save_running_metrics: true
 
 criterion:
   _target_: torch.nn.MSELoss
@@ -34,13 +36,9 @@ dataloader:
   batch_size: full # if batch_size is "full", a dataloader is not used at all
   shuffle: true
 
-tracker:
-  per_image: true
-  log_images: true
-  project: INR-canopy-height-completion
-  group: ${run_group}
-  name: ${run_name}
-
 hydra:
   run:
     dir: ./outputs/${run_group}/${run_name}
+  sweep:
+    dir: ./outputs/${run_group}
+    subdir: ${run_name}
