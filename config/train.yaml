@@ -28,8 +28,9 @@ metrics:
 
 data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
-  normalize_image: true # data range in metrics should match choice here
-  test_grid_skip: 3
+  normalization_min: 0 # measured (1000 random samples): 0, 0
+  normalization_max: 3000 # measured (1000 random samples): 1953, 2149
+  test_grid_skip: 2
   sparsity: 0.5
 
 dataloader:

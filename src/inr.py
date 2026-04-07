@@ -16,7 +16,8 @@ class SparseImageINR:
     def __init__(
         self,
         target_image: torch.Tensor,
-        normalize_image: bool,
+        normalization_min: float,
+        normalization_max: float,
         channel_dim: int,
         sparsity: float,
         test_grid_skip: int,
@@ -42,12 +43,10 @@ class SparseImageINR:
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
 
-        if normalize_image:
-            self._shift = self._target_image.min()
-            self._scale = self._target_image.max() - self._shift
-            self._target_image = (self._target_image - self._shift) / self._scale
+        self._shift = normalization_min
+        self._scale = normalization_max - self._shift
+        self._target_image = (self._target_image - self._shift) / self._scale
 
-        self.normalize_image = normalize_image
         self.channel_dim = channel_dim
         self.sparsity = sparsity
         self.test_grid_skip = test_grid_skip
@@ -91,10 +90,7 @@ class SparseImageINR:
 
     @property
     def target_image(self) -> torch.Tensor:
-        to_return = self._target_image
-
-        if self.normalize_image:
-            to_return = to_return * self._scale + self._shift
+        to_return = self._target_image * self._scale + self._shift
 
         if self.channel_dim == 0:
             to_return = to_return.permute(2, 0, 1)
@@ -118,10 +114,7 @@ class SparseImageINR:
                 self._target_width, self._target_width, self._target_channels
             )
 
-        to_return = self._reconstructed_target
-
-        if self.normalize_image:
-            to_return = to_return * self._scale + self._shift
+        to_return = self._reconstructed_target * self._scale + self._shift
 
         if self.channel_dim == 0:
             to_return = to_return.permute(2, 0, 1)
