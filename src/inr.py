@@ -8,6 +8,7 @@ from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from src.data import single_image_dataset
+from src.utils.metrics import SSIM
 
 log = logging.getLogger(__name__)
 
@@ -69,10 +70,13 @@ class SparseImageINR:
         if batch_size == "full":
             self.train_dataloader = [self.train_pixels.tensors]
         else:
+            assert not any(
+                isinstance(metric_class, SSIM) for metric_class in self.metrics.values()
+            ), 'SSIM is incompatible with batch_size different than "full"'
             log.warning(
-                "Training metrics are probably computed slightly wrong, \
+                'Training metrics are probably computed slightly wrong, \
                  since it is assumed that all batches have same size, but \
-                 the last one might not"
+                 the last one might not when batch_size != "full"'
             )
             self.train_dataloader = DataLoader(
                 self.train_pixels,

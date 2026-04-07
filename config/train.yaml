@@ -25,6 +25,11 @@ metrics:
       _target_: src.utils.metrics.ME
   - R2:
       _target_: src.utils.metrics.R2
+  - SSIM:
+      _target_: src.utils.metrics.SSIM
+      data_range: 1.0 # should be 1 if normalizing image
+      k_1: 0.01
+      k_2: 0.03
 
 data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
@@ -34,7 +39,10 @@ data:
   sparsity: 0.5
 
 dataloader:
-  batch_size: full # if batch_size is "full", a dataloader is not used at all
+  batch_size:
+    full
+    # if batch_size is "full", a dataloader is not used at all and fitting is way faster.
+    # smaller sizes are only potentially useful for regularization and only used when fitting
   shuffle: true
 
 hydra:
