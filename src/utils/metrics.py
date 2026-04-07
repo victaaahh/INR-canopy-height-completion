@@ -60,7 +60,7 @@ class SSIM(nn.Module):
         mu_y = target.mean()
         sigma2_x = predictions.var()
         sigma2_y = predictions.var()
-        sigma_xy = torch.cov(torch.vstack([predictions.T, target.T]))
+        sigma_xy = torch.cov(torch.vstack([predictions.T, target.T]))[0, 1]
         numerator = (2 * mu_x * mu_y + self.c_1) * (2 * sigma_xy + self.c_2)
         denominator = (mu_x * mu_x + mu_y * mu_y + self.c_1) * (
             sigma2_x + sigma2_y + self.c_2
