@@ -53,8 +53,6 @@ def main(cfg):
 
         inr = SparseImageINR(
             target_image=target,
-            normalization_min=cfg.data.normalization_min,
-            normalization_max=cfg.data.normalization_max,
             channel_dim=0,
             sparsity=cfg.data.sparsity,
             test_grid_skip=cfg.data.test_grid_skip,
