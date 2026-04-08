@@ -4,4 +4,4 @@ hidden_features: 256
 hidden_layers: 3
 out_features: 1
 first_omega_0: 30
-hidden_omega_0: 30
+hidden_omega_0: ${model.first_omega_0}
