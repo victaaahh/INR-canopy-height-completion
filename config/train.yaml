@@ -19,8 +19,6 @@ metrics: # metrics are computed on rescaled/non-normalized output
       data_range: 3000
   - RMSE:
       _target_: src.utils.metrics.RMSE
-  - MSE:
-      _target_: torch.nn.MSELoss
   - MAE:
       _target_: torch.nn.L1Loss
   - ME:

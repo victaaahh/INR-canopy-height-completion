@@ -23,7 +23,7 @@ def main(cfg):
         name: hydra.utils.instantiate(metric)
         for metric_entry in cfg.metrics
         for name, metric in metric_entry.items()
-    }
+    } | {"rescaled_loss": hydra.utils.instantiate(cfg.criterion)}
     results = {
         "opencanopy_idx": list(cfg.data.opencanopy_indices),
         "train_loss": [],
