@@ -13,12 +13,14 @@ save_running_metrics: true
 criterion:
   _target_: torch.nn.MSELoss
 
-metrics:
+metrics: # metrics are computed on rescaled/non-normalized output
   - PSNR:
       _target_: src.utils.metrics.PSNR
-      data_range: 1.0 # should be 1 if normalizing images
+      data_range: 3000
   - RMSE:
       _target_: src.utils.metrics.RMSE
+  - MSE:
+      _target_: torch.nn.MSELoss
   - MAE:
       _target_: torch.nn.L1Loss
   - ME:
@@ -27,14 +29,14 @@ metrics:
       _target_: src.utils.metrics.R2
   - SSIM:
       _target_: src.utils.metrics.SSIM
-      data_range: 1.0 # should be 1 if normalizing image
+      data_range: 3000
       k_1: 0.01
       k_2: 0.03
 
 data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
-  normalization_min: 0 # measured (1000 random samples): 0, 0
-  normalization_max: 3000 # measured (1000 random samples): 1953, 2149
+  normalization_min: 0 # measured (1000 random samples): 0x3
+  normalization_max: 3000 # measured (1000 random samples): 1953, 2149, 2628
   test_grid_skip: 2
   sparsity: 0.5
 

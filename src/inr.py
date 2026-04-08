@@ -147,15 +147,20 @@ class SparseImageINR:
 
         for i in tqdm(range(epochs)):
             self.model.train()
-            for input_, target in self.train_dataloader:
+            for coords, pixels in self.train_dataloader:
                 self.optimizer.zero_grad()
-                output = self.model(input_)
-                loss = self.criterion(output, target)
+                output = self.model(coords)
+                loss = self.criterion(output, pixels)
                 train_losses[i] += loss.item()
-                for name, metric in self.metrics.items():
-                    train_metrics[name][i] += metric(output, target).item()
                 loss.backward()
                 self.optimizer.step()
+
+                rescaled_output = output * self._scale + self._shift
+                rescaled_pixels = pixels * self._scale + self._shift
+                for name, metric in self.metrics.items():
+                    train_metrics[name][i] += metric(
+                        rescaled_output, rescaled_pixels
+                    ).item()
 
             train_losses[i] /= len(self.train_dataloader)
             for name in self.metrics:
@@ -174,12 +179,16 @@ class SparseImageINR:
         epoch_loss = 0.0
         metrics_values = {name: 0.0 for name, _ in self.metrics.items()}
         with torch.no_grad():
-            for input_, target in self.test_dataloader:
-                output = self.model(input_)
-                loss = self.criterion(output, target)
+            for coords, pixels in self.test_dataloader:
+                output = self.model(coords)
+                loss = self.criterion(output, pixels)
                 epoch_loss += loss.item()
+                rescaled_output = output * self._scale + self._shift
+                rescaled_pixels = pixels * self._scale + self._shift
                 for name, metric in self.metrics.items():
-                    metrics_values[name] += metric(output, target).item()
+                    metrics_values[name] += metric(
+                        rescaled_output, rescaled_pixels
+                    ).item()
             epoch_loss /= len(self.test_dataloader)
             for name in self.metrics:
                 metrics_values[name] /= len(self.test_dataloader)
