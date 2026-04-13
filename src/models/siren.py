@@ -57,9 +57,9 @@ class Siren(nn.Module):
         hidden_features,
         hidden_layers,
         out_features,
-        outermost_linear=False,
-        first_omega_0=30.0,
-        hidden_omega_0=30.0,
+        outermost_linear,
+        first_omega_0,
+        hidden_omega_0,
     ):
         super().__init__()
 
