@@ -73,6 +73,7 @@ class full_window_SSIM(nn.Module):
 
 class SSIM(nn.Module):
     def __init__(self, data_range, k_1, k_2, gaussian_kernel, sigma, kernel_size):
+        super().__init__()
         self.ssim = StructuralSimilarityIndexMeasure(
             data_range=data_range,
             k1=k_1,
