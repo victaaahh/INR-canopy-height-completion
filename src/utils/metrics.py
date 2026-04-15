@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torchmetrics.image import StructuralSimilarityIndexMeasure
 
 
 class PSNR(nn.Module):
@@ -42,7 +43,7 @@ class R2(nn.Module):
         return 1.0 - ss_res / ss_tot
 
 
-class SSIM(nn.Module):
+class full_window_SSIM(nn.Module):
     """Uses special case formula as described in
     https://en.wikipedia.org/wiki/Structural_similarity_index_measure.
     Computes for all pixels without knowing location, so equivalent to a
@@ -55,7 +56,9 @@ class SSIM(nn.Module):
 
     def forward(self, predictions: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         _, channels = predictions.shape
-        assert channels == 1, "SSIM is only implemented for 1 channel images"
+        assert channels == 1, (
+            "full_window_SSIM is only implemented for 1 channel images"
+        )
         mu_x = predictions.mean()
         mu_y = target.mean()
         sigma2_x = predictions.var()
@@ -66,3 +69,26 @@ class SSIM(nn.Module):
             sigma2_x + sigma2_y + self.c_2
         )
         return numerator / denominator
+
+
+class SSIM(nn.Module):
+    def __init__(self, data_range, k_1, k_2, gaussian_kernel, sigma, kernel_size):
+        self.ssim = StructuralSimilarityIndexMeasure(
+            data_range=data_range,
+            k1=k_1,
+            k2=k_2,
+            gaussian_kernel=gaussian_kernel,
+            sigma=sigma,
+            kernel_size=kernel_size,
+            reduction="elementwise_mean",
+            return_full_image=False,
+            return_contrast_sensitivity=False,
+        )
+
+    def forward(
+        self, predicted_image: torch.Tensor, target_image: torch.Tensor
+    ) -> torch.Tensor:
+        h, w, c = target_image.shape
+        reshaped_predicted_image = predicted_image.permute(2, 0, 1).view(1, c, h, w)
+        reshaped_target_image = target_image.permute(2, 0, 1).view(1, c, h, w)
+        return self.ssim(reshaped_predicted_image, reshaped_target_image)
