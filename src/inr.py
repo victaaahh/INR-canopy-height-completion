@@ -95,7 +95,6 @@ class SparseImageINR:
 
         self._sparse_target = None
         self._target_eval_grid = None
-        self._reconstructed_target = None
 
     @property
     def _rescaled_target_image(self) -> torch.Tensor:
@@ -110,21 +109,18 @@ class SparseImageINR:
 
     @property
     def _rescaled_reconstructed_target(self) -> torch.Tensor:
-        if self._reconstructed_target is None:
-            coord_range = torch.linspace(-1, 1, self._target_width)
-            coordinates = (
-                torch.stack(
-                    torch.meshgrid(coord_range, coord_range, indexing="ij"), dim=-1
-                )
-                .reshape(-1, 2)
-                .to(self.device)
-            )
-            reconstructed_target = self.model(coordinates).detach().cpu()
+        coord_range = torch.linspace(-1, 1, self._target_width)
+        coordinates = (
+            torch.stack(torch.meshgrid(coord_range, coord_range, indexing="ij"), dim=-1)
+            .reshape(-1, 2)
+            .to(self.device)
+        )
+        reconstructed_target = self.model(coordinates).detach().cpu()
 
-            self._reconstructed_target = reconstructed_target.reshape(
-                self._target_width, self._target_width, self._target_channels
-            )
-        return self._reconstructed_target * self._scale + self._shift
+        reconstructed_target = reconstructed_target.reshape(
+            self._target_width, self._target_width, self._target_channels
+        )
+        return reconstructed_target * self._scale + self._shift
 
     @property
     def reconstructed_target(self) -> torch.Tensor:
@@ -142,7 +138,6 @@ class SparseImageINR:
         Optional[dict[str, torch.Tensor]],
         dict[str, torch.Tensor],
     ]:
-        self._reconstructed_target = None
         train_losses = torch.zeros(epochs)  # initialize vars to avoid warning
         train_metrics = {name: torch.zeros(epochs) for name in self.metrics}
         full_image_metrics = {
