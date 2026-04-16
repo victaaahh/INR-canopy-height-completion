@@ -182,16 +182,14 @@ class SparseImageINR:
                 and all_full_image_metrics is not None
             ):
                 return_full_image_metrics = (
-                    i % full_image_metrics_interval == 0 or i == epochs - 1
-                )
+                    i + 1
+                ) % full_image_metrics_interval == 0 or i == epochs - 1
                 test_loss, test_metrics, full_image_metrics = self.evaluate(
                     return_full_image_metrics=return_full_image_metrics
                 )
                 if full_image_metrics is not None:
                     for name in self.full_image_metrics:
-                        j = i // full_image_metrics_interval + (
-                            i % full_image_metrics_interval > 0
-                        )
+                        j = i // full_image_metrics_interval
                         all_full_image_metrics[name][j] = full_image_metrics[name]
                 all_test_loss[i] = test_loss
                 for name in self.metrics:
