@@ -6,6 +6,7 @@ defaults:
   - optimizer: adam
   - _self_
 
+device: cuda
 epochs: 1000
 save_images: true
 save_running_metrics: true
@@ -41,6 +42,7 @@ full_image_metrics:
       gaussian_kernel: true
       sigma: 1.5
       kernel_size: 11
+      device: ${device}
 
 data:
   opencanopy_indices: [42, 262, 488, 819, 1043]

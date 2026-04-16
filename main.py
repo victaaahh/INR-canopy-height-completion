@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 def main(cfg):
     opencanopy = OpenCanopy("datasets/canopy_height", split="train")
     centercrop = CenterCrop(512)
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device(cfg.device)
     log.info(f"using device: {device}")
     criterion = hydra.utils.instantiate(cfg.criterion)
     metrics_dict = {

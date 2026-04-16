@@ -72,7 +72,9 @@ class full_window_SSIM(nn.Module):
 
 
 class SSIM(nn.Module):
-    def __init__(self, data_range, k_1, k_2, gaussian_kernel, sigma, kernel_size):
+    def __init__(
+        self, data_range, k_1, k_2, gaussian_kernel, sigma, kernel_size, device
+    ):
         super().__init__()
         self.ssim = StructuralSimilarityIndexMeasure(
             data_range=data_range,
@@ -84,7 +86,7 @@ class SSIM(nn.Module):
             reduction="elementwise_mean",
             return_full_image=False,
             return_contrast_sensitivity=False,
-        )
+        ).to(device)
 
     def forward(
         self, predicted_image: torch.Tensor, target_image: torch.Tensor
