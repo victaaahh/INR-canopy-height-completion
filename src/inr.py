@@ -93,9 +93,6 @@ class SparseImageINR:
             )
         self.test_dataloader = [self.test_pixels.tensors]
 
-        self._sparse_target = None
-        self._target_eval_grid = None
-
     @property
     def _rescaled_target_image(self) -> torch.Tensor:
         return self._target_image * self._scale + self._shift
@@ -130,27 +127,33 @@ class SparseImageINR:
             return self._rescaled_reconstructed_target
 
     def fit(
-        self, epochs: int, return_test_metrics: bool = False
+        self,
+        epochs: int,
+        return_test_metrics: bool,
+        full_image_metrics_interval: int,
     ) -> tuple[
         torch.Tensor,
         dict[str, torch.Tensor],
         Optional[torch.Tensor],
         Optional[dict[str, torch.Tensor]],
-        dict[str, torch.Tensor],
+        Optional[dict[str, torch.Tensor]],
     ]:
-        train_losses = torch.zeros(epochs)  # initialize vars to avoid warning
-        train_metrics = {name: torch.zeros(epochs) for name in self.metrics}
-        full_image_metrics = {
-            name: torch.zeros(epochs) for name in self.full_image_metrics
-        }
+        all_train_loss = torch.zeros(epochs)  # initialize vars to avoid warning
+        all_train_metrics = {name: torch.zeros(epochs) for name in self.metrics}
         if return_test_metrics:
-            test_losses = torch.zeros(epochs)
-            test_metrics = {
-                name: torch.zeros(epochs) for name, _ in self.metrics.items()
+            all_test_loss = torch.zeros(epochs)
+            all_test_metrics = {name: torch.zeros(epochs) for name in self.metrics}
+            full_image_metric_computations = epochs // full_image_metrics_interval + (
+                epochs % full_image_metrics_interval > 0
+            )
+            all_full_image_metrics = {
+                name: torch.zeros(full_image_metric_computations)
+                for name in self.full_image_metrics
             }
         else:
-            test_losses = None
-            test_metrics = None
+            all_test_loss = None
+            all_test_metrics = None
+            all_full_image_metrics = None
 
         for i in tqdm(range(epochs)):
             self.model.train()
@@ -158,41 +161,51 @@ class SparseImageINR:
                 self.optimizer.zero_grad()
                 output = self.model(coords)
                 loss = self.criterion(output, pixels)
-                train_losses[i] += loss.item()
+                all_train_loss[i] += loss.item()
                 loss.backward()
                 self.optimizer.step()
 
                 rescaled_output = output * self._scale + self._shift
                 rescaled_pixels = pixels * self._scale + self._shift
                 for name, metric in self.metrics.items():
-                    train_metrics[name][i] += metric(
+                    all_train_metrics[name][i] += metric(
                         rescaled_output, rescaled_pixels
                     ).item()
 
-            train_losses[i] /= len(self.train_dataloader)
+            all_train_loss[i] /= len(self.train_dataloader)
             for name in self.metrics:
-                train_metrics[name][i] /= len(self.test_dataloader)
+                all_train_metrics[name][i] /= len(self.test_dataloader)
 
-            for name, metric in self.full_image_metrics.items():
-                full_image_metrics[name][i] = metric(
-                    self._rescaled_reconstructed_target, self._rescaled_target_image
+            if (
+                all_test_loss is not None
+                and all_test_metrics is not None
+                and all_full_image_metrics is not None
+            ):
+                return_full_image_metrics = (
+                    i % full_image_metrics_interval == 0 or i == epochs - 1
                 )
-
-            if test_losses is not None and test_metrics is not None:
-                test_loss, eval_metrics, _ = self.evaluate()
-                test_losses[i] = test_loss
+                test_loss, test_metrics, full_image_metrics = self.evaluate(
+                    return_full_image_metrics=return_full_image_metrics
+                )
+                if full_image_metrics is not None:
+                    for name in self.full_image_metrics:
+                        j = i // full_image_metrics_interval + (i == epochs - 1)
+                        all_full_image_metrics[name][j] = full_image_metrics[name]
+                all_test_loss[i] = test_loss
                 for name in self.metrics:
-                    test_metrics[name][i] = eval_metrics[name]
+                    all_test_metrics[name][i] = test_metrics[name]
 
         return (
-            train_losses,
-            train_metrics,
-            test_losses,
-            test_metrics,
-            full_image_metrics,
+            all_train_loss,
+            all_train_metrics,
+            all_test_loss,
+            all_test_metrics,
+            all_full_image_metrics,
         )
 
-    def evaluate(self) -> tuple[float, dict[str, float], dict[str, float]]:
+    def evaluate(
+        self, return_full_image_metrics
+    ) -> tuple[float, dict[str, float], Optional[dict[str, float]]]:
         self.model.eval()
         epoch_loss = 0.0
         metrics_values = {name: 0.0 for name, _ in self.metrics.items()}
@@ -211,12 +224,16 @@ class SparseImageINR:
             for name in self.metrics:
                 metrics_values[name] /= len(self.test_dataloader)
 
-            full_image_metrics = {
-                name: float(
-                    metric(
-                        self._rescaled_reconstructed_target, self._rescaled_target_image
+            if return_full_image_metrics:
+                full_image_metrics = {
+                    name: float(
+                        metric(
+                            self._rescaled_reconstructed_target,
+                            self._rescaled_target_image,
+                        )
                     )
-                )
-                for name, metric in self.full_image_metrics.items()
-            }
+                    for name, metric in self.full_image_metrics.items()
+                }
+            else:
+                full_image_metrics = None
         return epoch_loss, metrics_values, full_image_metrics
