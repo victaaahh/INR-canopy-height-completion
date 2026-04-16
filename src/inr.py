@@ -225,13 +225,10 @@ class SparseImageINR:
                 metrics_values[name] /= len(self.test_dataloader)
 
             if return_full_image_metrics:
+                reconstructed = self._rescaled_reconstructed_target.to(self.device)
+                target_image = self._rescaled_target_image.to(self.device)
                 full_image_metrics = {
-                    name: float(
-                        metric(
-                            self._rescaled_reconstructed_target,
-                            self._rescaled_target_image,
-                        )
-                    )
+                    name: float(metric(reconstructed, target_image))
                     for name, metric in self.full_image_metrics.items()
                 }
             else:
