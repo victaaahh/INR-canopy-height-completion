@@ -189,7 +189,9 @@ class SparseImageINR:
                 )
                 if full_image_metrics is not None:
                     for name in self.full_image_metrics:
-                        j = i // full_image_metrics_interval + (i == epochs - 1)
+                        j = i // full_image_metrics_interval + (
+                            i % full_image_metrics_interval > 0
+                        )
                         all_full_image_metrics[name][j] = full_image_metrics[name]
                 all_test_loss[i] = test_loss
                 for name in self.metrics:
