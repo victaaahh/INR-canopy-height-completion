@@ -10,7 +10,7 @@ class ReLuMLP(nn.Module):
             layers.append(nn.Linear(hidden_features, hidden_features))
             layers.append(nn.ReLU())
         layers.append(nn.Linear(hidden_features, out_features))
-        layers.append(nn.Sigmoid())
+        # layers.append(nn.Sigmoid())
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
@@ -37,7 +37,7 @@ class RandomFourierFeatures(nn.Module):
             layers.append(nn.Linear(hidden_features, hidden_features))
             layers.append(nn.ReLU())
         layers.append(nn.Linear(hidden_features, out_features))
-        layers.append(nn.Sigmoid())
+        # layers.append(nn.Sigmoid())
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
