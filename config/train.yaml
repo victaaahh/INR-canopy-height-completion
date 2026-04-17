@@ -6,9 +6,11 @@ defaults:
   - optimizer: adam
   - _self_
 
+device: cuda
 epochs: 1000
 save_images: true
 save_running_metrics: true
+full_image_metrics_interval: 10
 
 criterion:
   _target_: torch.nn.MSELoss
@@ -25,11 +27,22 @@ metrics: # metrics are computed on rescaled/non-normalized output
       _target_: src.utils.metrics.ME
   - R2:
       _target_: src.utils.metrics.R2
+  - full_window_SSIM:
+      _target_: src.utils.metrics.full_window_SSIM
+      data_range: 3000
+      k_1: 0.01
+      k_2: 0.03
+
+full_image_metrics:
   - SSIM:
       _target_: src.utils.metrics.SSIM
       data_range: 3000
       k_1: 0.01
       k_2: 0.03
+      gaussian_kernel: true
+      sigma: 1.5
+      kernel_size: 11
+      device: ${device}
 
 data:
   opencanopy_indices: [42, 262, 488, 819, 1043]

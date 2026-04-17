@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 def main(cfg):
     opencanopy = OpenCanopy("datasets/canopy_height", split="train")
     centercrop = CenterCrop(512)
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device(cfg.device)
     log.info(f"using device: {device}")
     criterion = hydra.utils.instantiate(cfg.criterion)
     metrics_dict = {
@@ -24,12 +24,18 @@ def main(cfg):
         for metric_entry in cfg.metrics
         for name, metric in metric_entry.items()
     } | {"rescaled_loss": hydra.utils.instantiate(cfg.criterion)}
+    full_image_metrics_dict = {
+        name: hydra.utils.instantiate(metric)
+        for metric_entry in cfg.full_image_metrics
+        for name, metric in metric_entry.items()
+    }
     results = {
         "opencanopy_idx": list(cfg.data.opencanopy_indices),
         "train_loss": [],
         **{f"train_{name}": [] for name in metrics_dict},
         "test_loss": [],
         **{f"test_{name}": [] for name in metrics_dict},
+        **{f"full_image_{name}": [] for name in full_image_metrics_dict},
     }
     if cfg.save_running_metrics:
         results = results | {
@@ -37,6 +43,7 @@ def main(cfg):
             **{f"all_train_{name}": [] for name in metrics_dict},
             "all_test_loss": [],
             **{f"all_test_{name}": [] for name in metrics_dict},
+            **{f"all_full_image_{name}": [] for name in full_image_metrics_dict},
         }
     if cfg.save_images:
         results = results | {
@@ -60,20 +67,37 @@ def main(cfg):
             optimizer=optimizer,
             criterion=criterion,
             metrics=metrics_dict,
+            full_image_metrics=full_image_metrics_dict,
             batch_size=cfg.dataloader.batch_size,
             shuffle=cfg.dataloader.shuffle,
             device=device,
         )
-        all_train_loss, all_train_metrics, all_test_loss, all_test_metrics = inr.fit(
-            cfg.epochs, return_test_metrics=cfg.save_running_metrics
+        (
+            all_train_loss,
+            all_train_metrics,
+            all_test_loss,
+            all_test_metrics,
+            all_full_image_metrics,
+        ) = inr.fit(
+            cfg.epochs,
+            return_test_metrics=cfg.save_running_metrics,
+            full_image_metrics_interval=cfg.full_image_metrics_interval,
         )
-        if all_test_loss is not None and all_test_metrics is not None:
-            test_loss, test_metrics = (
-                all_test_loss[-1],
-                {name: vals[-1] for name, vals in all_test_metrics.items()},
-            )
+        if (
+            all_test_loss is not None
+            and all_test_metrics is not None
+            and all_full_image_metrics is not None
+        ):  # no reason to re-compute if we already have the final results
+            test_loss = all_test_loss[-1]
+            test_metrics = {name: vals[-1] for name, vals in all_test_metrics.items()}
+            full_image_metrics = {
+                name: vals[-1] for name, vals in all_full_image_metrics.items()
+            }
         else:
-            test_loss, test_metrics = inr.evaluate()
+            test_loss, test_metrics, full_image_metrics = inr.evaluate(
+                return_full_image_metrics=True
+            )
+            assert full_image_metrics is not None
 
         results["train_loss"].append(all_train_loss[-1])
         results["test_loss"].append(test_loss)
@@ -81,16 +105,29 @@ def main(cfg):
             results[f"train_{name}"].append(vals[-1])
         for name, val in test_metrics.items():
             results[f"test_{name}"].append(val)
+        for name, val in full_image_metrics.items():
+            results[f"full_image_{name}"].append(val)
 
-        if all_test_metrics is not None:
+        if (
+            all_test_loss is not None
+            and all_test_metrics is not None
+            and all_full_image_metrics is not None
+        ):  # i.e save_running_metrics
             results["all_train_loss"].append(all_train_loss)
             results["all_test_loss"].append(all_test_loss)
-            for name, val in all_train_metrics.items():
-                results[f"all_train_{name}"].append(val)
-            for name, val in all_test_metrics.items():
-                results[f"all_test_{name}"].append(val)
+            for name, vals in all_train_metrics.items():
+                results[f"all_train_{name}"].append(vals)
+            for name, vals in all_test_metrics.items():
+                results[f"all_test_{name}"].append(vals)
+            for name, vals in all_full_image_metrics.items():
+                results[f"all_full_image_{name}"].append(vals)
 
-        if "target_image" in results:
+        if (
+            "target_image" in results
+            and "train_mask" in results
+            and "reconstructed_target" in results
+            and "test_mask" in results
+        ):
             target_image = inr.target_image.permute((1, 2, 0))
             train_mask = inr.train_mask
             reconstructed_target = inr.reconstructed_target.permute((1, 2, 0))

@@ -8,7 +8,7 @@ from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from src.data import single_image_dataset
-from src.utils.metrics import SSIM
+from src.utils.metrics import full_window_SSIM
 
 log = logging.getLogger(__name__)
 
@@ -24,6 +24,9 @@ class SparseImageINR:
         optimizer: Optimizer,
         criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
         metrics: dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]],
+        full_image_metrics: dict[
+            str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+        ],
         batch_size: Union[int, Literal["full"]],
         shuffle: bool,
         device: torch.device,
@@ -55,6 +58,7 @@ class SparseImageINR:
         self.optimizer = optimizer
         self.criterion = criterion
         self.metrics = metrics
+        self.full_image_metrics = full_image_metrics
         self.device = device
 
         self.train_pixels, self.test_pixels, self.train_mask, self.test_mask = (
@@ -71,8 +75,9 @@ class SparseImageINR:
             self.train_dataloader = [self.train_pixels.tensors]
         else:
             assert not any(
-                isinstance(metric_class, SSIM) for metric_class in self.metrics.values()
-            ), 'SSIM is incompatible with batch_size different than "full"'
+                isinstance(metric_class, full_window_SSIM)
+                for metric_class in self.metrics.values()
+            ), 'full_window_SSIM is incompatible with batch_size different than "full"'
             log.warning(
                 'Training metrics are probably computed slightly wrong, \
                  since it is assumed that all batches have same size, but \
@@ -88,62 +93,67 @@ class SparseImageINR:
             )
         self.test_dataloader = [self.test_pixels.tensors]
 
-        self._sparse_target = None
-        self._target_eval_grid = None
-        self._reconstructed_target = None
+    @property
+    def _rescaled_target_image(self) -> torch.Tensor:
+        return self._target_image * self._scale + self._shift
 
     @property
     def target_image(self) -> torch.Tensor:
-        to_return = self._target_image * self._scale + self._shift
-
         if self.channel_dim == 0:
-            to_return = to_return.permute(2, 0, 1)
+            return self._rescaled_target_image.permute(2, 0, 1)
+        else:
+            return self._rescaled_target_image
 
-        return to_return
+    @property
+    def _rescaled_reconstructed_target(self) -> torch.Tensor:
+        coord_range = torch.linspace(-1, 1, self._target_width)
+        coordinates = (
+            torch.stack(torch.meshgrid(coord_range, coord_range, indexing="ij"), dim=-1)
+            .reshape(-1, 2)
+            .to(self.device)
+        )
+        reconstructed_target = self.model(coordinates).detach().cpu()
+
+        reconstructed_target = reconstructed_target.reshape(
+            self._target_width, self._target_width, self._target_channels
+        )
+        return reconstructed_target * self._scale + self._shift
 
     @property
     def reconstructed_target(self) -> torch.Tensor:
-        if self._reconstructed_target is None:
-            coord_range = torch.linspace(-1, 1, self._target_width)
-            coordinates = (
-                torch.stack(
-                    torch.meshgrid(coord_range, coord_range, indexing="ij"), dim=-1
-                )
-                .reshape(-1, 2)
-                .to(self.device)
-            )
-            reconstructed_target = self.model(coordinates).detach().cpu()
-
-            self._reconstructed_target = reconstructed_target.reshape(
-                self._target_width, self._target_width, self._target_channels
-            )
-
-        to_return = self._reconstructed_target * self._scale + self._shift
-
         if self.channel_dim == 0:
-            to_return = to_return.permute(2, 0, 1)
-
-        return to_return
+            return self._rescaled_reconstructed_target.permute(2, 0, 1)
+        else:
+            return self._rescaled_reconstructed_target
 
     def fit(
-        self, epochs: int, return_test_metrics: bool = False
+        self,
+        epochs: int,
+        return_test_metrics: bool,
+        full_image_metrics_interval: int,
     ) -> tuple[
         torch.Tensor,
         dict[str, torch.Tensor],
         Optional[torch.Tensor],
         Optional[dict[str, torch.Tensor]],
+        Optional[dict[str, torch.Tensor]],
     ]:
-        self._reconstructed_target = None
-        train_losses = torch.zeros(epochs)  # initialize vars to avoid warning
-        train_metrics = {name: torch.zeros(epochs) for name, _ in self.metrics.items()}
+        all_train_loss = torch.zeros(epochs)  # initialize vars to avoid warning
+        all_train_metrics = {name: torch.zeros(epochs) for name in self.metrics}
         if return_test_metrics:
-            test_losses = torch.zeros(epochs)
-            test_metrics = {
-                name: torch.zeros(epochs) for name, _ in self.metrics.items()
+            all_test_loss = torch.zeros(epochs)
+            all_test_metrics = {name: torch.zeros(epochs) for name in self.metrics}
+            full_image_metric_computations = epochs // full_image_metrics_interval + (
+                epochs % full_image_metrics_interval > 0
+            )
+            all_full_image_metrics = {
+                name: torch.zeros(full_image_metric_computations)
+                for name in self.full_image_metrics
             }
         else:
-            test_losses = None
-            test_metrics = None
+            all_test_loss = None
+            all_test_metrics = None
+            all_full_image_metrics = None
 
         for i in tqdm(range(epochs)):
             self.model.train()
@@ -151,30 +161,51 @@ class SparseImageINR:
                 self.optimizer.zero_grad()
                 output = self.model(coords)
                 loss = self.criterion(output, pixels)
-                train_losses[i] += loss.item()
+                all_train_loss[i] += loss.item()
                 loss.backward()
                 self.optimizer.step()
 
                 rescaled_output = output * self._scale + self._shift
                 rescaled_pixels = pixels * self._scale + self._shift
                 for name, metric in self.metrics.items():
-                    train_metrics[name][i] += metric(
+                    all_train_metrics[name][i] += metric(
                         rescaled_output, rescaled_pixels
                     ).item()
 
-            train_losses[i] /= len(self.train_dataloader)
+            all_train_loss[i] /= len(self.train_dataloader)
             for name in self.metrics:
-                train_metrics[name][i] /= len(self.test_dataloader)
+                all_train_metrics[name][i] /= len(self.test_dataloader)
 
-            if test_losses is not None and test_metrics is not None:
-                test_loss, eval_metrics = self.evaluate()
-                test_losses[i] = test_loss
+            if (
+                all_test_loss is not None
+                and all_test_metrics is not None
+                and all_full_image_metrics is not None
+            ):
+                return_full_image_metrics = (
+                    i + 1
+                ) % full_image_metrics_interval == 0 or i == epochs - 1
+                test_loss, test_metrics, full_image_metrics = self.evaluate(
+                    return_full_image_metrics=return_full_image_metrics
+                )
+                if full_image_metrics is not None:
+                    for name in self.full_image_metrics:
+                        j = i // full_image_metrics_interval
+                        all_full_image_metrics[name][j] = full_image_metrics[name]
+                all_test_loss[i] = test_loss
                 for name in self.metrics:
-                    test_metrics[name][i] = eval_metrics[name]
+                    all_test_metrics[name][i] = test_metrics[name]
 
-        return train_losses, train_metrics, test_losses, test_metrics
+        return (
+            all_train_loss,
+            all_train_metrics,
+            all_test_loss,
+            all_test_metrics,
+            all_full_image_metrics,
+        )
 
-    def evaluate(self) -> tuple[float, dict[str, float]]:
+    def evaluate(
+        self, return_full_image_metrics
+    ) -> tuple[float, dict[str, float], Optional[dict[str, float]]]:
         self.model.eval()
         epoch_loss = 0.0
         metrics_values = {name: 0.0 for name, _ in self.metrics.items()}
@@ -192,4 +223,14 @@ class SparseImageINR:
             epoch_loss /= len(self.test_dataloader)
             for name in self.metrics:
                 metrics_values[name] /= len(self.test_dataloader)
-        return epoch_loss, metrics_values
+
+            if return_full_image_metrics:
+                reconstructed = self._rescaled_reconstructed_target.to(self.device)
+                target_image = self._rescaled_target_image.to(self.device)
+                full_image_metrics = {
+                    name: float(metric(reconstructed, target_image))
+                    for name, metric in self.full_image_metrics.items()
+                }
+            else:
+                full_image_metrics = None
+        return epoch_loss, metrics_values, full_image_metrics
