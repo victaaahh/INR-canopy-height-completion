@@ -18,6 +18,8 @@ class SparseImageINR:
         self,
         target_image: torch.Tensor,
         channel_dim: int,
+        normalization_shift: float | Literal["individual_min_max", "individual_std"],
+        normalization_scale: float | Literal["individual_min_max", "individual_std"],
         sparsity: float,
         test_grid_skip: int,
         model: Module,
@@ -45,10 +47,26 @@ class SparseImageINR:
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
 
-        self._shift = self._target_image.min()
-        self._scale = max(
-            self._target_image.max() - self._shift, 0.1
-        )  # avoid division by zero
+        if (
+            normalization_scale == "individual_min_max"
+            and normalization_shift == "individual_min_max"
+        ):
+            self._shift = self._target_image.min()
+            self._scale = max(
+                self._target_image.max() - self._shift, 0.1
+            )  # avoid division by zero
+        elif (
+            normalization_scale == "individual_std"
+            and normalization_shift == "individual_std"
+        ):
+            self._shift = self._target_image.mean()
+            self._scale = max(self._target_image.std(), 0.1)
+        else:
+            assert isinstance(normalization_shift, float)
+            assert isinstance(normalization_scale, float)
+            self._shift = normalization_shift
+            self._scale = normalization_scale
+
         self._target_image = (self._target_image - self._shift) / self._scale
 
         self.channel_dim = channel_dim
