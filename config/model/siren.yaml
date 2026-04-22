@@ -1,8 +1,8 @@
 _target_: src.models.Siren
 in_features: 2
 hidden_features: 256
-hidden_layers: 3
+hidden_layers: 4 # fairer comparison with an extra hidden layer
 out_features: 1
-first_omega_0: 30
 outermost_linear: True
+first_omega_0: 30
 hidden_omega_0: ${model.first_omega_0}
