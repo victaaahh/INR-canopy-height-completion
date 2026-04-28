@@ -4,6 +4,7 @@ import os
 import hydra
 import pandas as pd
 import torch
+from muon import SingleDeviceMuonWithAuxAdam
 from torchvision.transforms.v2 import CenterCrop
 
 from src import SparseImageINR
@@ -56,7 +57,29 @@ def main(cfg):
         _, target = opencanopy[i]
         target = centercrop(target)
         model = hydra.utils.instantiate(cfg.model).to(device)
-        optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
+        if "_target_" in cfg.optimizer:
+            optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
+        elif "muon" in cfg.optimizer:
+            middle_weights = [
+                p for p in model.middle_layers.parameters() if p.ndim >= 2
+            ]
+            middle_biases = [p for p in model.middle_layers.parameters() if p.ndim < 2]
+            other_params = [
+                *model.first_layer.parameters(),
+                *model.last_layer.parameters(),
+            ]
+            optimizer = SingleDeviceMuonWithAuxAdam(
+                [
+                    dict(params=middle_weights, use_muon=True, **cfg.optimizer.muon),
+                    dict(
+                        params=middle_biases + other_params,
+                        use_muon=False,
+                        **cfg.optimizer.adam,
+                    ),
+                ]
+            )
+        else:
+            raise ValueError("Unsupported optimizer config")
 
         inr = SparseImageINR(
             target_image=target,
