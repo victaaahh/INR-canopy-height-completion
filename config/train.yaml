@@ -48,8 +48,8 @@ data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
   test_grid_skip: 2
   sparsity: 0.5
-  normalization_shift: individual_min_max
-  normalization_scale: individual_min_max
+  normalization_shift: 58.85
+  normalization_scale: 85.56
 
 dataloader:
   batch_size:
