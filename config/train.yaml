@@ -18,7 +18,7 @@ criterion:
 metrics: # metrics are computed on rescaled/non-normalized output
   - PSNR:
       _target_: src.utils.metrics.PSNR
-      data_range: 3000
+      data_range: 6000
   - RMSE:
       _target_: src.utils.metrics.RMSE
   - MAE:
@@ -29,14 +29,14 @@ metrics: # metrics are computed on rescaled/non-normalized output
       _target_: src.utils.metrics.R2
   - full_window_SSIM:
       _target_: src.utils.metrics.full_window_SSIM
-      data_range: 3000
+      data_range: 6000
       k_1: 0.01
       k_2: 0.03
 
 full_image_metrics:
   - SSIM:
       _target_: src.utils.metrics.SSIM
-      data_range: 3000
+      data_range: 6000
       k_1: 0.01
       k_2: 0.03
       gaussian_kernel: true
