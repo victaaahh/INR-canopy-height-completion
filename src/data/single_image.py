@@ -46,6 +46,7 @@ def single_image_dataset(
     ).reshape(-1, 2)
 
     pixel_values = image.reshape(-1, image.shape[2])
+    nan_mask = pixel_values.isnan().sum(axis=1) > 0
 
     # Create divide into train and test data
     test_mask = torch.zeros((image_width, image_width)).to(torch.bool)
@@ -54,11 +55,13 @@ def single_image_dataset(
             test_mask[i, j] = True
 
     test_mask = test_mask.flatten()
+    combined_mask_test = test_mask & (~nan_mask)
+    combined_mask_train = (~test_mask) & (~nan_mask)
 
-    test_coordinates = coordinates[test_mask]
-    test_pixel_values = pixel_values[test_mask]
-    train_coordinates = coordinates[~test_mask]
-    train_pixel_values = pixel_values[~test_mask]
+    test_coordinates = coordinates[combined_mask_test]
+    test_pixel_values = pixel_values[combined_mask_test]
+    train_coordinates = coordinates[combined_mask_train]
+    train_pixel_values = pixel_values[combined_mask_train]
 
     # Sparsify the train data
     train_mask = torch.bernoulli(torch.ones(train_coordinates.shape[0]) * sparsity).to(
@@ -74,11 +77,11 @@ def single_image_dataset(
         test_pixel_values = test_pixel_values.to(device)
 
     full_train_mask = torch.zeros(image_width * image_width).to(torch.bool)
-    full_train_mask[torch.where(~test_mask)[0][train_mask]] = True
+    full_train_mask[torch.where(combined_mask_train)[0][train_mask]] = True
 
     return (
         CustomTensorDataset(train_coordinates, train_pixel_values),
         CustomTensorDataset(test_coordinates, test_pixel_values),
         full_train_mask.reshape(image_width, image_width),
-        test_mask.reshape(image_width, image_width),
+        combined_mask_test.reshape(image_width, image_width),
     )
