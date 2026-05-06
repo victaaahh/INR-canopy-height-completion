@@ -50,6 +50,8 @@ data:
   sparsity: 0.5
   normalization_shift: 58.85
   normalization_scale: 85.56
+  nan_above: 600
+  full_image_metrics_fill_na: 0.0
 
 dataloader:
   batch_size:

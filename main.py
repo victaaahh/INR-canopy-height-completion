@@ -15,7 +15,9 @@ log = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg):
-    opencanopy = OpenCanopy("datasets/canopy_height", split="train")
+    opencanopy = OpenCanopy(
+        "datasets/canopy_height", split="train", nan_above=cfg.data.nan_above
+    )
     centercrop = CenterCrop(512)
     device = torch.device(cfg.device)
     log.info(f"using device: {device}")
@@ -84,6 +86,7 @@ def main(cfg):
         inr = SparseImageINR(
             target_image=target,
             channel_dim=0,
+            full_image_metrics_fill_na=cfg.data.full_image_metrics_fill_na,
             normalization_shift=cfg.data.normalization_shift,
             normalization_scale=cfg.data.normalization_scale,
             sparsity=cfg.data.sparsity,

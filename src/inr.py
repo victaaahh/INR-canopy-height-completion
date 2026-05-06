@@ -18,6 +18,7 @@ class SparseImageINR:
         self,
         target_image: torch.Tensor,
         channel_dim: int,
+        full_image_metrics_fill_na: float,
         normalization_shift: float | Literal["individual_min_max", "individual_std"],
         normalization_scale: float | Literal["individual_min_max", "individual_std"],
         sparsity: float,
@@ -47,20 +48,21 @@ class SparseImageINR:
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
 
+        non_nan_values = self._target_image[~target_image.isnan()]
         if (
             normalization_scale == "individual_min_max"
             and normalization_shift == "individual_min_max"
         ):
-            self._shift = self._target_image.min()
+            self._shift = non_nan_values.min()
             self._scale = max(
-                self._target_image.max() - self._shift, 0.1
+                non_nan_values.max() - self._shift, 0.1
             )  # avoid division by zero
         elif (
             normalization_scale == "individual_std"
             and normalization_shift == "individual_std"
         ):
-            self._shift = self._target_image.mean()
-            self._scale = max(self._target_image.std(), 0.1)
+            self._shift = non_nan_values.mean()
+            self._scale = max(non_nan_values.std(), 0.1)
         else:
             assert isinstance(normalization_shift, float)
             assert isinstance(normalization_scale, float)
@@ -70,6 +72,7 @@ class SparseImageINR:
         self._target_image = (self._target_image - self._shift) / self._scale
 
         self.channel_dim = channel_dim
+        self.full_image_metrics_fill_na = full_image_metrics_fill_na
         self.sparsity = sparsity
         self.test_grid_skip = test_grid_skip
         self.model = model
@@ -243,8 +246,13 @@ class SparseImageINR:
                 metrics_values[name] /= len(self.test_dataloader)
 
             if return_full_image_metrics:
-                reconstructed = self._rescaled_reconstructed_target.to(self.device)
-                target_image = self._rescaled_target_image.to(self.device)
+                target_image = self._rescaled_target_image.clone().to(self.device)
+                nan_inds = torch.where(target_image.isnan())
+                target_image[nan_inds] = self.full_image_metrics_fill_na
+                reconstructed = self._rescaled_reconstructed_target.clone().to(
+                    self.device
+                )
+                reconstructed[nan_inds] = self.full_image_metrics_fill_na
                 full_image_metrics = {
                     name: float(metric(reconstructed, target_image))
                     for name, metric in self.full_image_metrics.items()
