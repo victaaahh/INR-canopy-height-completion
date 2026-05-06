@@ -48,20 +48,21 @@ class SparseImageINR:
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
 
+        non_nan_values = self._target_image[~target_image.isnan()]
         if (
             normalization_scale == "individual_min_max"
             and normalization_shift == "individual_min_max"
         ):
-            self._shift = self._target_image.min()
+            self._shift = non_nan_values.min()
             self._scale = max(
-                self._target_image.max() - self._shift, 0.1
+                non_nan_values.max() - self._shift, 0.1
             )  # avoid division by zero
         elif (
             normalization_scale == "individual_std"
             and normalization_shift == "individual_std"
         ):
-            self._shift = self._target_image.mean()
-            self._scale = max(self._target_image.std(), 0.1)
+            self._shift = non_nan_values.mean()
+            self._scale = max(non_nan_values.std(), 0.1)
         else:
             assert isinstance(normalization_shift, float)
             assert isinstance(normalization_scale, float)
