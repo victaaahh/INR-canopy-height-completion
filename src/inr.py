@@ -142,9 +142,7 @@ class SparseImageINR:
             .reshape(-1, 2)
             .to(self.device)
         )
-        reconstructed_target, reconstructed_guide = (
-            self.model(coordinates).detach().cpu()
-        )
+        reconstructed_target, reconstructed_guide = self.model(coordinates)
 
         reconstructed_target = (
             reconstructed_target.reshape(
