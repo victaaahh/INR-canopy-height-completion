@@ -127,26 +127,48 @@ class SparseImageINR:
             return self._rescaled_target_image
 
     @property
-    def _rescaled_reconstructed_target(self) -> torch.Tensor:
+    def guide_image(self) -> torch.Tensor:
+        rescaled_guide_image = self._guide_image * self._guide_scale + self._guide_shift
+        if self.channel_dim == 0:
+            return rescaled_guide_image.permute(2, 0, 1)
+        else:
+            return rescaled_guide_image
+
+    @property
+    def _rescaled_reconstructed_images(self) -> tuple[torch.Tensor, torch.Tensor]:
         coord_range = torch.linspace(-1, 1, self._target_width)
         coordinates = (
             torch.stack(torch.meshgrid(coord_range, coord_range, indexing="ij"), dim=-1)
             .reshape(-1, 2)
             .to(self.device)
         )
-        reconstructed_target = self.model(coordinates).detach().cpu()
-
-        reconstructed_target = reconstructed_target.reshape(
-            self._target_width, self._target_width, self._target_channels
+        reconstructed_target, reconstructed_guide = (
+            self.model(coordinates).detach().cpu()
         )
-        return reconstructed_target * self._scale + self._shift
+
+        reconstructed_target = (
+            reconstructed_target.reshape(
+                self._target_width, self._target_width, self._target_channels
+            )
+            * self._scale
+            + self._shift
+        )
+        reconstructed_guide = (
+            reconstructed_guide.reshape(
+                self._target_width, self._target_width, self._guide_channels
+            )
+            * self._guide_scale
+            + self._guide_shift
+        )
+        return reconstructed_target, reconstructed_guide
 
     @property
-    def reconstructed_target(self) -> torch.Tensor:
+    def reconstructed_images(self) -> tuple[torch.Tensor, torch.Tensor]:
         if self.channel_dim == 0:
-            return self._rescaled_reconstructed_target.permute(2, 0, 1)
+            recon_target, recon_guide = self._rescaled_reconstructed_images
+            return recon_target.permute(2, 0, 1), recon_guide.permute(2, 0, 1)
         else:
-            return self._rescaled_reconstructed_target
+            return self._rescaled_reconstructed_images
 
     def fit_target_one_step(self, coords, pixels):
         assert self.target_optimizer is not None
@@ -281,8 +303,8 @@ class SparseImageINR:
                 target_image = self._rescaled_target_image.clone().to(self.device)
                 nan_inds = torch.where(target_image.isnan())
                 target_image[nan_inds] = self.full_image_metrics_fill_na
-                reconstructed = self._rescaled_reconstructed_target.clone().to(
-                    self.device
+                reconstructed = (
+                    self._rescaled_reconstructed_images[0].clone().to(self.device)
                 )
                 reconstructed[nan_inds] = self.full_image_metrics_fill_na
                 full_image_metrics = {
