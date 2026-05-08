@@ -177,28 +177,32 @@ class SparseImageINR:
         self.target_optimizer.step()
         return output, loss
 
-    def fit_guide_one_step(self, coords, pixels):
+    def fit_guide_one_step(
+        self, target_coords, target_pixels, guide_coords, guide_pixels
+    ):
         assert self.guide_optimizer is not None
         self.guide_optimizer.zero_grad()
-        output, guide_output = self.model(coords)
-        loss = self.criterion(guide_output, pixels)
-        loss.backward()
+        target_output, _ = self.model(target_coords)
+        _, guide_output = self.model(guide_coords)
+        guide_loss = self.criterion(guide_output, guide_pixels)
+        target_loss = self.criterion(target_output, target_pixels)
+        guide_loss.backward()
         self.guide_optimizer.step()
-        return output, loss
+        return target_output, target_loss
 
     def fit_jointly_one_step(
         self, target_coords, target_pixels, guide_coords, guide_pixels
     ):
         assert self.joint_optimizer is not None
         self.joint_optimizer.zero_grad()
-        output, _ = self.model(target_coords)
+        target_output, _ = self.model(target_coords)
         _, guide_output = self.model(guide_coords)
-        loss = self.criterion(output, target_pixels)
+        target_loss = self.criterion(target_output, target_pixels)
         guide_loss = self.criterion(guide_output, guide_pixels)
-        total_loss = loss + guide_loss
+        total_loss = target_loss + guide_loss
         total_loss.backward()
         self.joint_optimizer.step()
-        return output, loss
+        return target_output, target_loss
 
     def fit(
         self,
