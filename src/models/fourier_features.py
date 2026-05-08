@@ -11,6 +11,7 @@ class RandomFourierFeatures(nn.Module):
         hidden_layers,
         out_features,
         scale,
+        guide_out_features,
     ):
         super().__init__()
         self.B = nn.Parameter(
@@ -29,9 +30,11 @@ class RandomFourierFeatures(nn.Module):
 
         self.last_layer = nn.Linear(hidden_features, out_features)
 
+        self.guide_head = nn.Linear(hidden_features, guide_out_features)
+
     def forward(self, x):
         x = 2 * torch.pi * x @ self.B
         x = torch.hstack((torch.cos(x), torch.sin(x)))
         x = self.first_layer(x)
         x = self.middle_layers(x)
-        return self.last_layer(x)
+        return self.last_layer(x), self.guide_head(x)
