@@ -237,7 +237,7 @@ class SparseImageINR:
             if what == "target":
                 output, loss = self.fit_target_one_step(coords, pixels)
             elif what == "guide":
-                output, loss = self.fit_guide_one_step(coords, pixels)
+                output, loss = self.fit_guide_one_step(guide_coords, guide_pixels)
             elif what == "jointly":
                 output, loss = self.fit_jointly_one_step(
                     coords, pixels, guide_coords, guide_pixels
