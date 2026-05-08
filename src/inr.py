@@ -230,17 +230,15 @@ class SparseImageINR:
             all_test_metrics = None
             all_full_image_metrics = None
 
+        coords, pixels = self.train_pixels.tensors
+        guide_coords, guide_pixels = self.guide_pixels.tensors
         for i in tqdm(range(epochs)):
             self.model.train()
             if what == "target":
-                coords, pixels = self.train_pixels.tensors
                 output, loss = self.fit_target_one_step(coords, pixels)
             elif what == "guide":
-                coords, pixels = self.guide_pixels.tensors
                 output, loss = self.fit_guide_one_step(coords, pixels)
             elif what == "jointly":
-                coords, pixels = self.train_pixels.tensors
-                guide_coords, guide_pixels = self.guide_pixels.tensors
                 output, loss = self.fit_jointly_one_step(
                     coords, pixels, guide_coords, guide_pixels
                 )
@@ -289,7 +287,7 @@ class SparseImageINR:
         metrics_values = {name: 0.0 for name, _ in self.metrics.items()}
         coords, pixels = self.test_pixels.tensors
         with torch.no_grad():
-            output = self.model(coords)
+            output, _ = self.model(coords)
             loss = self.criterion(output, pixels)
             epoch_loss = loss.item()
             rescaled_output = output * self._scale + self._shift
