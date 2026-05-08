@@ -57,7 +57,7 @@ class SparseImageINR:
         )
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
-        self._guide_channels = self._guide_image[2]
+        self._guide_channels = self._guide_image.shape[2]
 
         non_nan_values = self._target_image[~target_image.isnan()]
         if (
