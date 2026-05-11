@@ -1,14 +1,12 @@
 import logging
-from typing import Callable, Literal, Optional, Union
+from typing import Callable, Literal, Optional
 
 import torch
 from torch.nn import Module
 from torch.optim import Optimizer
-from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from src.data import single_image_dataset, single_image_sparse_dataset
-from src.utils.metrics import full_window_SSIM
 
 log = logging.getLogger(__name__)
 
