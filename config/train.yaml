@@ -3,14 +3,20 @@ run_name: ${now:%Y-%m-%d}T${now:%H:%M:%S}
 
 defaults:
   - model: fourier_features
-  - optimizer: adam
+  - optimizer@target_optimizer: adam
+  - optimizer@guide_optimizer: adam
+  - optimizer@joint_optimizer: adam
   - _self_
 
 device: cuda
 epochs: 1000
-save_images: true
+save_canopy_height_maps: true
+save_guide_images: true
 save_running_metrics: true
 full_image_metrics_interval: 10
+what_to_fit: jointly # target, guide, jointly
+target_loss_weight: 0.5 # loss weights are used when jointly fitting
+guide_loss_weight: 0.5
 
 criterion:
   _target_: torch.nn.MSELoss
@@ -48,17 +54,12 @@ data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
   test_grid_skip: 2
   sparsity: 0.5
-  normalization_shift: 58.85
-  normalization_scale: 85.56
+  target_normalization_shift: 58.85
+  target_normalization_scale: 85.56
+  guide_normalization_shift: 0.0
+  guide_normalization_scale: 256.0
   nan_above: 600
   full_image_metrics_fill_na: 0.0
-
-dataloader:
-  batch_size:
-    full
-    # if batch_size is "full", a dataloader is not used at all and fitting is way faster.
-    # smaller sizes are only potentially useful for regularization and only used when fitting
-  shuffle: true
 
 hydra:
   run:
