@@ -189,7 +189,13 @@ class SparseImageINR:
         return target_output, target_loss
 
     def fit_jointly_one_step(
-        self, target_coords, target_pixels, guide_coords, guide_pixels
+        self,
+        target_coords,
+        target_pixels,
+        guide_coords,
+        guide_pixels,
+        target_loss_weight,
+        guide_loss_weight,
     ):
         assert self.joint_optimizer is not None
         self.joint_optimizer.zero_grad()
@@ -197,7 +203,7 @@ class SparseImageINR:
         _, guide_output = self.model(guide_coords)
         target_loss = self.criterion(target_output, target_pixels)
         guide_loss = self.criterion(guide_output, guide_pixels)
-        total_loss = target_loss + guide_loss
+        total_loss = target_loss_weight * target_loss + guide_loss_weight * guide_loss
         total_loss.backward()
         self.joint_optimizer.step()
         return target_output, target_loss
@@ -208,6 +214,8 @@ class SparseImageINR:
         return_test_metrics: bool,
         full_image_metrics_interval: int,
         what: Literal["target", "guide", "jointly"],
+        target_loss_weight: float = 1.0,
+        guide_loss_weight: float = 1.0,
     ) -> tuple[
         torch.Tensor,
         dict[str, torch.Tensor],
@@ -244,7 +252,12 @@ class SparseImageINR:
                 )
             elif what == "jointly":
                 output, loss = self.fit_jointly_one_step(
-                    coords, pixels, guide_coords, guide_pixels
+                    coords,
+                    pixels,
+                    guide_coords,
+                    guide_pixels,
+                    target_loss_weight,
+                    guide_loss_weight,
                 )
             else:
                 raise ValueError("Invalid value for what")
