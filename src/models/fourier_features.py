@@ -10,8 +10,8 @@ class RandomFourierFeatures(nn.Module):
         hidden_features,
         hidden_layers,
         out_features,
-        scale,
         guide_out_features,
+        scale,
     ):
         super().__init__()
         self.B = nn.Parameter(

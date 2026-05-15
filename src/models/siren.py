@@ -50,6 +50,7 @@ class Siren(nn.Module):
         hidden_features,
         hidden_layers,
         out_features,
+        guide_out_features,
         outermost_linear,
         first_omega_0,
         hidden_omega_0,
@@ -75,9 +76,14 @@ class Siren(nn.Module):
 
         if outermost_linear:
             self.last_layer = nn.Linear(hidden_features, out_features)
+            self.guide_head = nn.Linear(hidden_features, guide_out_features)
 
             with torch.no_grad():
                 self.last_layer.weight.uniform_(
+                    -np.sqrt(6 / hidden_features) / hidden_omega_0,
+                    np.sqrt(6 / hidden_features) / hidden_omega_0,
+                )
+                self.guide_head.weight.uniform_(
                     -np.sqrt(6 / hidden_features) / hidden_omega_0,
                     np.sqrt(6 / hidden_features) / hidden_omega_0,
                 )
@@ -88,10 +94,16 @@ class Siren(nn.Module):
                 is_first=False,
                 omega_0=hidden_omega_0,
             )
+            self.guide_head = SineLayer(
+                hidden_features,
+                guide_out_features,
+                is_first=False,
+                omega_0=hidden_omega_0,
+            )
 
         self.middle_layers = nn.Sequential(*net)
 
     def forward(self, coords):
         x = self.first_layer(coords)
         x = self.middle_layers(x)
-        return self.last_layer(x)
+        return self.last_layer(x), self.guide_head(x)
