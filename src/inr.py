@@ -214,8 +214,8 @@ class SparseImageINR:
         return_test_metrics: bool,
         full_image_metrics_interval: int,
         what: Literal["target", "guide", "jointly"],
-        target_loss_weight: float = 1.0,
-        guide_loss_weight: float = 1.0,
+        target_loss_weight: float,
+        guide_loss_weight: float,
     ) -> tuple[
         torch.Tensor,
         dict[str, torch.Tensor],
