@@ -1,12 +1,13 @@
 import logging
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal
 
 import torch
-from torch.nn import Module
+from torch import Tensor, device
 from torch.optim import Optimizer
 from tqdm import tqdm
 
 from src.data import single_image_dataset, single_image_sparse_dataset
+from src.models.base_inr import INR
 
 log = logging.getLogger(__name__)
 
@@ -14,8 +15,8 @@ log = logging.getLogger(__name__)
 class SparseImageINR:
     def __init__(
         self,
-        target_image: torch.Tensor,
-        guide_image: torch.Tensor,
+        target_image: Tensor,
+        guide_image: Tensor,
         channel_dim: int,
         full_image_metrics_fill_na: float,
         target_normalization_shift: float
@@ -26,16 +27,14 @@ class SparseImageINR:
         guide_normalization_scale: float,
         sparsity: float,
         test_grid_skip: int,
-        model: Module,
-        target_optimizer: Optional[Optimizer],
-        guide_optimizer: Optional[Optimizer],
-        joint_optimizer: Optional[Optimizer],
-        criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
-        metrics: dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]],
-        full_image_metrics: dict[
-            str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-        ],
-        device: torch.device,
+        model: INR,
+        target_optimizer: Optimizer | None,
+        guide_optimizer: Optimizer | None,
+        joint_optimizer: Optimizer | None,
+        criterion: Callable[[Tensor, Tensor], Tensor],
+        metrics: dict[str, Callable[[Tensor, Tensor], Tensor]],
+        full_image_metrics: dict[str, Callable[[Tensor, Tensor], Tensor]],
+        device: device,
     ):
         assert len(target_image.shape) == 3, (
             "image should have channel, width and height dims"
@@ -114,18 +113,18 @@ class SparseImageINR:
         )
 
     @property
-    def _rescaled_target_image(self) -> torch.Tensor:
+    def _rescaled_target_image(self) -> Tensor:
         return self._target_image * self._scale + self._shift
 
     @property
-    def target_image(self) -> torch.Tensor:
+    def target_image(self) -> Tensor:
         if self.channel_dim == 0:
             return self._rescaled_target_image.permute(2, 0, 1)
         else:
             return self._rescaled_target_image
 
     @property
-    def guide_image(self) -> torch.Tensor:
+    def guide_image(self) -> Tensor:
         rescaled_guide_image = self._guide_image * self._guide_scale + self._guide_shift
         if self.channel_dim == 0:
             return rescaled_guide_image.permute(2, 0, 1)
@@ -133,7 +132,7 @@ class SparseImageINR:
             return rescaled_guide_image
 
     @property
-    def _rescaled_reconstructed_images(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def _rescaled_reconstructed_images(self) -> tuple[Tensor, Tensor]:
         coord_range = torch.linspace(-1, 1, self._target_width)
         coordinates = (
             torch.stack(torch.meshgrid(coord_range, coord_range, indexing="ij"), dim=-1)
@@ -159,24 +158,28 @@ class SparseImageINR:
         return reconstructed_target, reconstructed_guide
 
     @property
-    def reconstructed_images(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def reconstructed_images(self) -> tuple[Tensor, Tensor]:
         if self.channel_dim == 0:
             recon_target, recon_guide = self._rescaled_reconstructed_images
             return recon_target.permute(2, 0, 1), recon_guide.permute(2, 0, 1)
         else:
             return self._rescaled_reconstructed_images
 
-    def fit_target_one_step(self, coords, pixels):
+    def fit_target_one_step(self, coords: Tensor, pixels: Tensor):
         assert self.target_optimizer is not None
         self.target_optimizer.zero_grad()
         output, _ = self.model(coords)
         loss = self.criterion(output, pixels)
-        loss.backward()
+        _ = loss.backward()
         self.target_optimizer.step()
         return output, loss
 
     def fit_guide_one_step(
-        self, target_coords, target_pixels, guide_coords, guide_pixels
+        self,
+        target_coords: Tensor,
+        target_pixels: Tensor,
+        guide_coords: Tensor,
+        guide_pixels: Tensor,
     ):
         assert self.guide_optimizer is not None
         self.guide_optimizer.zero_grad()
@@ -184,18 +187,18 @@ class SparseImageINR:
         _, guide_output = self.model(guide_coords)
         guide_loss = self.criterion(guide_output, guide_pixels)
         target_loss = self.criterion(target_output, target_pixels)
-        guide_loss.backward()
+        _ = guide_loss.backward()
         self.guide_optimizer.step()
         return target_output, target_loss
 
     def fit_jointly_one_step(
         self,
-        target_coords,
-        target_pixels,
-        guide_coords,
-        guide_pixels,
-        target_loss_weight,
-        guide_loss_weight,
+        target_coords: Tensor,
+        target_pixels: Tensor,
+        guide_coords: Tensor,
+        guide_pixels: Tensor,
+        target_loss_weight: float,
+        guide_loss_weight: float,
     ):
         assert self.joint_optimizer is not None
         self.joint_optimizer.zero_grad()
@@ -204,7 +207,7 @@ class SparseImageINR:
         target_loss = self.criterion(target_output, target_pixels)
         guide_loss = self.criterion(guide_output, guide_pixels)
         total_loss = target_loss_weight * target_loss + guide_loss_weight * guide_loss
-        total_loss.backward()
+        _ = total_loss.backward()
         self.joint_optimizer.step()
         return target_output, target_loss
 
@@ -217,11 +220,11 @@ class SparseImageINR:
         target_loss_weight: float,
         guide_loss_weight: float,
     ) -> tuple[
-        torch.Tensor,
-        dict[str, torch.Tensor],
-        Optional[torch.Tensor],
-        Optional[dict[str, torch.Tensor]],
-        Optional[dict[str, torch.Tensor]],
+        Tensor,
+        dict[str, Tensor],
+        Tensor | None,
+        dict[str, Tensor] | None,
+        dict[str, Tensor] | None,
     ]:
         all_train_loss = torch.zeros(epochs)  # initialize vars to avoid warning
         all_train_metrics = {name: torch.zeros(epochs) for name in self.metrics}
@@ -243,7 +246,7 @@ class SparseImageINR:
         coords, pixels = self.train_pixels.tensors
         guide_coords, guide_pixels = self.guide_pixels.tensors
         for i in tqdm(range(epochs)):
-            self.model.train()
+            _ = self.model.train()
             if what == "target":
                 output, loss = self.fit_target_one_step(coords, pixels)
             elif what == "guide":
@@ -259,8 +262,6 @@ class SparseImageINR:
                     target_loss_weight,
                     guide_loss_weight,
                 )
-            else:
-                raise ValueError("Invalid value for what")
             all_train_loss[i] = loss.item()
             rescaled_output = output * self._scale + self._shift
             rescaled_pixels = pixels * self._scale + self._shift
@@ -297,9 +298,9 @@ class SparseImageINR:
         )
 
     def evaluate(
-        self, return_full_image_metrics
-    ) -> tuple[float, dict[str, float], Optional[dict[str, float]]]:
-        self.model.eval()
+        self, return_full_image_metrics: bool
+    ) -> tuple[float, dict[str, float], dict[str, float] | None]:
+        _ = self.model.eval()
         epoch_loss = 0.0
         metrics_values = {name: 0.0 for name, _ in self.metrics.items()}
         coords, pixels = self.test_pixels.tensors
