@@ -5,6 +5,10 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from torch import Tensor
+from typing_extensions import override
+
+from src.models.base_inr import INR
 
 
 class SineLayer(nn.Module):
@@ -18,7 +22,12 @@ class SineLayer(nn.Module):
     # activations constant, but boost gradients to the weight matrix (see supplement Sec. 1.5)
 
     def __init__(
-        self, in_features, out_features, bias=True, is_first=False, omega_0=30.0
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        is_first: bool = False,
+        omega_0: float = 30.0,
     ):
         super().__init__()
         self.omega_0 = omega_0
@@ -32,28 +41,31 @@ class SineLayer(nn.Module):
     def init_weights(self):
         with torch.no_grad():
             if self.is_first:
-                self.linear.weight.uniform_(-1 / self.in_features, 1 / self.in_features)
+                _ = self.linear.weight.uniform_(
+                    -1 / self.in_features, 1 / self.in_features
+                )
             else:
-                self.linear.weight.uniform_(
+                _ = self.linear.weight.uniform_(
                     -np.sqrt(6 / self.in_features) / self.omega_0,
                     np.sqrt(6 / self.in_features) / self.omega_0,
                 )
 
-    def forward(self, input):
+    @override
+    def forward(self, input: Tensor):
         return torch.sin(self.omega_0 * self.linear(input))
 
 
-class Siren(nn.Module):
+class Siren(INR):
     def __init__(
         self,
-        in_features,
-        hidden_features,
-        hidden_layers,
-        out_features,
-        guide_out_features,
-        outermost_linear,
-        first_omega_0,
-        hidden_omega_0,
+        in_features: int,
+        hidden_features: int,
+        hidden_layers: int,
+        out_features: int,
+        guide_out_features: int,
+        outermost_linear: int,
+        first_omega_0: float,
+        hidden_omega_0: float,
     ):
         super().__init__()
 
@@ -63,7 +75,7 @@ class Siren(nn.Module):
             )
         )
 
-        net = []
+        net: list[nn.Module] = []
         for _ in range(hidden_layers - 1):
             net.append(
                 SineLayer(
@@ -79,11 +91,11 @@ class Siren(nn.Module):
             self.guide_head = nn.Linear(hidden_features, guide_out_features)
 
             with torch.no_grad():
-                self.last_layer.weight.uniform_(
+                _ = self.last_layer.weight.uniform_(
                     -np.sqrt(6 / hidden_features) / hidden_omega_0,
                     np.sqrt(6 / hidden_features) / hidden_omega_0,
                 )
-                self.guide_head.weight.uniform_(
+                _ = self.guide_head.weight.uniform_(
                     -np.sqrt(6 / hidden_features) / hidden_omega_0,
                     np.sqrt(6 / hidden_features) / hidden_omega_0,
                 )
@@ -103,7 +115,8 @@ class Siren(nn.Module):
 
         self.middle_layers = nn.Sequential(*net)
 
-    def forward(self, coords):
+    @override
+    def forward(self, coords: Tensor):
         x = self.first_layer(coords)
         x = self.middle_layers(x)
         return self.last_layer(x), self.guide_head(x)

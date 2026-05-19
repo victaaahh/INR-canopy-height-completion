@@ -1,14 +1,24 @@
-from torch import nn
+from torch import Tensor, nn
+from typing_extensions import override
+
+from src.models.base_inr import INR
 
 
-class ReLUMLP(nn.Module):
-    def __init__(self, in_features, hidden_features, hidden_layers, out_features):
+class ReLUMLP(INR):
+    def __init__(
+        self,
+        in_features: int,
+        hidden_features: int,
+        hidden_layers: int,
+        out_features: int,
+        guide_out_features: int,
+    ):
         super().__init__()
         self.first_layer = nn.Sequential(
             nn.Linear(in_features, hidden_features), nn.ReLU()
         )
 
-        layers = []
+        layers: list[nn.Module] = []
         for _ in range(hidden_layers - 1):
             layers.append(nn.Linear(hidden_features, hidden_features))
             layers.append(nn.ReLU())
@@ -17,7 +27,10 @@ class ReLUMLP(nn.Module):
 
         self.last_layer = nn.Linear(hidden_features, out_features)
 
-    def forward(self, x):
-        x = self.first_layer(x)
+        self.guide_head = nn.Linear(hidden_features, guide_out_features)
+
+    @override
+    def forward(self, coords: Tensor):
+        x = self.first_layer(coords)
         x = self.middle_layers(x)
-        return self.last_layer(x)
+        return self.last_layer(x), self.guide_head(x)
