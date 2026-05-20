@@ -1,1 +1,1 @@
-from src.inr import SparseImageINR
+from src.inr import SparseImageINR as SparseImageINR
