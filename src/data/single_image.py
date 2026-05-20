@@ -1,10 +1,9 @@
-from typing import Optional
-
 import torch
 from torch.utils.data import Dataset
+from typing_extensions import override
 
 
-class CustomTensorDataset(Dataset):
+class CustomTensorDataset(Dataset[tuple[torch.Tensor, ...]]):
     """This Dataset class misuses the __getitems__ API and should be used
     with an identity function as collate_fn in the DataLoader"""
 
@@ -18,6 +17,7 @@ class CustomTensorDataset(Dataset):
     def __len__(self) -> int:
         return len(self.tensors[0])
 
+    @override
     def __getitem__(self, index: int) -> tuple[torch.Tensor, ...]:
         return tuple(tensor[index] for tensor in self.tensors)
 
@@ -28,7 +28,7 @@ class CustomTensorDataset(Dataset):
 def single_image_dataset(
     image: torch.Tensor,
     channel_dim: int,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
 ) -> CustomTensorDataset:
     assert len(image.shape) == 3, "image should have channel, width and height dims"
     assert channel_dim in [0, 2], "invalid channel_dim"
@@ -56,7 +56,7 @@ def single_image_sparse_dataset(
     channel_dim: int,
     test_grid_skip: int,
     sparsity: float,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
 ) -> tuple[CustomTensorDataset, CustomTensorDataset, torch.Tensor, torch.Tensor]:
     assert len(image.shape) == 3, "image should have channel, width and height dims"
     assert channel_dim in [0, 2], "invalid channel_dim"
@@ -72,7 +72,7 @@ def single_image_sparse_dataset(
     ).reshape(-1, 2)
 
     pixel_values = image.reshape(-1, image.shape[2])
-    nan_mask = pixel_values.isnan().sum(axis=1) > 0
+    nan_mask = pixel_values.isnan().sum(dim=1) > 0
 
     # Create divide into train and test data
     test_mask = torch.zeros((image_width, image_width)).to(torch.bool)

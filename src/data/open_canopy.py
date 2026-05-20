@@ -4,11 +4,13 @@ import geopandas as gpd
 import numpy as np
 import rasterio
 import torch
+from torch import Tensor
 from torch.utils.data import Dataset
+from typing_extensions import override
 
 
-class OpenCanopy(Dataset):
-    def __init__(self, data_dir, split, nan_above):
+class OpenCanopy(Dataset[tuple[Tensor, Tensor]]):
+    def __init__(self, data_dir: str, split: str, nan_above: float):
         self.data_dir = data_dir
         self.nan_above = nan_above
         geometries = gpd.read_file(os.path.join(data_dir, "geometries.geojson"))
@@ -21,7 +23,8 @@ class OpenCanopy(Dataset):
     def __len__(self):
         return len(self.geometries)
 
-    def __getitem__(self, idx):
+    @override
+    def __getitem__(self, idx: int):
         row = self.geometries.iloc[[idx]]
         year = row["lidar_year"].iloc[0]
         geometry = row["geometry"]
