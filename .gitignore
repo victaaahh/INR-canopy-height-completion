@@ -19,5 +19,6 @@ multirun/
 wandb/
 notebooks/figures/
 logs/
+scripts/results/
 
 pyrightconfig.json
