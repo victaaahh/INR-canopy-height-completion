@@ -4,6 +4,7 @@ import os
 import hydra
 import pandas as pd
 import torch
+from hydra.core.hydra_config import HydraConfig
 from muon import SingleDeviceMuonWithAuxAdam
 from torchvision.transforms.v2 import CenterCrop
 
@@ -48,7 +49,8 @@ def main(cfg):
     centercrop = CenterCrop(512)
     device = torch.device(cfg.device)
     log.info(f"using device: {device}")
-    criterion = hydra.utils.instantiate(cfg.criterion)
+    target_criterion = hydra.utils.instantiate(cfg.target_criterion)
+    guide_criterion = hydra.utils.instantiate(cfg.guide_criterion)
     metrics_dict = {
         name: hydra.utils.instantiate(metric)
         for metric_entry in cfg.metrics
@@ -115,11 +117,15 @@ def main(cfg):
             target_optimizer=target_optimizer,
             guide_optimizer=guide_optimizer,
             joint_optimizer=joint_optimizer,
-            criterion=criterion,
-            metrics=metrics_dict,
-            full_image_metrics=full_image_metrics_dict,
+            target_criterion=target_criterion,
+            guide_criterion=guide_criterion,
+            target_metrics=target_metrics_dict,
+            guide_metrics=guide_metrics_dict,
+            full_image_target_metrics=full_image_target_metrics_dict,
+            full_image_guide_metrics=full_image_guide_metrics_dict,
             device=device,
         )
+
         (
             all_train_loss,
             all_train_metrics,
@@ -127,13 +133,30 @@ def main(cfg):
             all_test_metrics,
             all_full_image_metrics,
         ) = inr.fit(
-            cfg.epochs,
+            cfg.epochs1,
             return_test_metrics=cfg.save_running_metrics,
             full_image_metrics_interval=cfg.full_image_metrics_interval,
-            what=cfg.what_to_fit,
+            what=cfg.fit1,
             target_loss_weight=cfg.target_loss_weight,
             guide_loss_weight=cfg.guide_loss_weight,
         )
+
+        if cfg.epochs2 is not None and cfg.fit2 is not None:
+            (
+                all_train_loss,
+                all_train_metrics,
+                all_test_loss,
+                all_test_metrics,
+                all_full_image_metrics,
+            ) = inr.fit(
+                cfg.epochs2,
+                return_test_metrics=cfg.save_running_metrics,
+                full_image_metrics_interval=cfg.full_image_metrics_interval,
+                what=cfg.fit2,
+                target_loss_weight=cfg.target_loss_weight,
+                guide_loss_weight=cfg.guide_loss_weight,
+            )
+
         if (
             all_test_loss is not None
             and all_test_metrics is not None
@@ -203,7 +226,7 @@ def main(cfg):
     table = pd.DataFrame(results)
     table.to_pickle(
         os.path.join(
-            hydra.core.hydra_config.HydraConfig.get().runtime.output_dir,
+            HydraConfig.get().runtime.output_dir,
             "results.pickle",
         )
     )

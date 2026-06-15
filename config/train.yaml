@@ -8,17 +8,24 @@ defaults:
   - optimizer@joint_optimizer: adam
   - _self_
 
+epochs1: 1000
+fit1: jointly # target, guide, jointly
+
+epochs2: null
+fit2: null
+
 device: cuda
-epochs: 1000
 save_canopy_height_maps: true
 save_guide_images: true
 save_running_metrics: true
 full_image_metrics_interval: 10
-what_to_fit: jointly # target, guide, jointly
 target_loss_weight: 0.5 # loss weights are used when jointly fitting
 guide_loss_weight: 0.5
 
-criterion:
+target_criterion:
+  _target_: torch.nn.MSELoss
+
+guide_criterion:
   _target_: torch.nn.MSELoss
 
 metrics: # metrics are computed on rescaled/non-normalized output

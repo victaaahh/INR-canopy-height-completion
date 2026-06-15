@@ -28,33 +28,31 @@ class SparseImageINR:
         sparsity: float,
         test_grid_skip: int,
         model: INR,
-        target_optimizer: Optimizer | None,
-        guide_optimizer: Optimizer | None,
-        joint_optimizer: Optimizer | None,
-        criterion: Callable[[Tensor, Tensor], Tensor],
-        metrics: dict[str, Callable[[Tensor, Tensor], Tensor]],
-        full_image_metrics: dict[str, Callable[[Tensor, Tensor], Tensor]],
+        target_optimizer: Optimizer,
+        guide_optimizer: Optimizer,
+        joint_optimizer: Optimizer,
+        target_criterion: Callable[[Tensor, Tensor], Tensor],
+        guide_criterion: Callable[[Tensor, Tensor], Tensor],
+        target_metrics: dict[str, Callable[[Tensor, Tensor], Tensor]],
+        guide_metrics: dict[str, Callable[[Tensor, Tensor], Tensor]],
+        full_target_metrics: dict[str, Callable[[Tensor, Tensor], Tensor]],
+        full_guide_metrics: dict[str, Callable[[Tensor, Tensor], Tensor]],
         device: device,
     ):
+        # Target image handling
         assert len(target_image.shape) == 3, (
             "image should have channel, width and height dims"
         )
         assert channel_dim in [0, 2], "invalid channel_dim"
         if channel_dim == 0:
             self._target_image = target_image.permute(1, 2, 0)
-            self._guide_image = guide_image.permute(1, 2, 0)
         else:
             self._target_image = target_image
-            self._guide_image = guide_image
         assert self._target_image.shape[0] == self._target_image.shape[1], (
             "target image should be a square"
         )
-        assert self._guide_image.shape[0:2] == self._target_image.shape[0:2], (
-            "guide image should have same height and width as target image"
-        )
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
-        self._guide_channels = self._guide_image.shape[2]
 
         non_nan_values = self._target_image[~target_image.isnan()]
         if (
@@ -77,24 +75,7 @@ class SparseImageINR:
             self._shift = target_normalization_shift
             self._scale = target_normalization_scale
 
-        self._guide_shift = guide_normalization_shift
-        self._guide_scale = guide_normalization_scale
-
         self._target_image = (self._target_image - self._shift) / self._scale
-        self._guide_image = (self._guide_image - self._guide_shift) / self._guide_scale
-
-        self.channel_dim = channel_dim
-        self.full_image_metrics_fill_na = full_image_metrics_fill_na
-        self.sparsity = sparsity
-        self.test_grid_skip = test_grid_skip
-        self.model = model
-        self.target_optimizer = target_optimizer
-        self.guide_optimizer = guide_optimizer
-        self.joint_optimizer = joint_optimizer
-        self.criterion = criterion
-        self.metrics = metrics
-        self.full_image_metrics = full_image_metrics
-        self.device = device
 
         self.train_pixels, self.test_pixels, self.train_mask, self.test_mask = (
             single_image_sparse_dataset(
@@ -106,11 +87,41 @@ class SparseImageINR:
             )
         )
 
+        # Guide image handling
+        self._guide_shift = guide_normalization_shift
+        self._guide_scale = guide_normalization_scale
+
+        if channel_dim == 0:
+            self._guide_image = guide_image.permute(1, 2, 0)
+        else:
+            self._guide_image = guide_image
+        assert self._guide_image.shape[0:2] == self._target_image.shape[0:2], (
+            "guide image should have same height and width as target image"
+        )
+        self._guide_channels = self._guide_image.shape[2]
+        self._guide_image = (self._guide_image - self._guide_shift) / self._guide_scale
         self.guide_pixels = single_image_dataset(
             self._guide_image,
             channel_dim=2,
             device=device,
         )
+
+        # Other parameters
+        self.channel_dim = channel_dim
+        self.full_image_metrics_fill_na = full_image_metrics_fill_na
+        self.sparsity = sparsity
+        self.test_grid_skip = test_grid_skip
+        self.model = model
+        self.target_optimizer = target_optimizer
+        self.guide_optimizer = guide_optimizer
+        self.joint_optimizer = joint_optimizer
+        self.target_criterion = target_criterion
+        self.guide_criterion = guide_criterion
+        self.target_metrics = target_metrics
+        self.guide_metrics = guide_metrics
+        self.full_target_metrics = full_target_metrics
+        self.full_guide_metrics = full_guide_metrics
+        self.device = device
 
     @property
     def _rescaled_target_image(self) -> Tensor:
@@ -125,6 +136,7 @@ class SparseImageINR:
 
     @property
     def guide_image(self) -> Tensor:
+        assert self._guide_image is not None
         rescaled_guide_image = self._guide_image * self._guide_scale + self._guide_shift
         if self.channel_dim == 0:
             return rescaled_guide_image.permute(2, 0, 1)
@@ -165,33 +177,29 @@ class SparseImageINR:
         else:
             return self._rescaled_reconstructed_images
 
-    def fit_target_one_step(self, coords: Tensor, pixels: Tensor):
-        assert self.target_optimizer is not None
+    def _fit_target_one_step(
+        self, target_coords: Tensor, target_pixels: Tensor
+    ) -> tuple[Tensor, float]:
         self.target_optimizer.zero_grad()
-        output, _ = self.model(coords)
-        loss = self.criterion(output, pixels)
+        output, _ = self.model(target_coords)
+        loss = self.target_criterion(output, target_pixels)
         _ = loss.backward()
         self.target_optimizer.step()
-        return output, loss
+        return output, loss.item()
 
-    def fit_guide_one_step(
+    def _fit_guide_one_step(
         self,
-        target_coords: Tensor,
-        target_pixels: Tensor,
         guide_coords: Tensor,
         guide_pixels: Tensor,
-    ):
-        assert self.guide_optimizer is not None
+    ) -> tuple[Tensor, float]:
         self.guide_optimizer.zero_grad()
-        target_output, _ = self.model(target_coords)
-        _, guide_output = self.model(guide_coords)
-        guide_loss = self.criterion(guide_output, guide_pixels)
-        target_loss = self.criterion(target_output, target_pixels)
-        _ = guide_loss.backward()
+        _, output = self.model(guide_coords)
+        loss = self.guide_criterion(output, guide_pixels)
+        _ = loss.backward()
         self.guide_optimizer.step()
-        return target_output, target_loss
+        return output, loss.item()
 
-    def fit_jointly_one_step(
+    def _fit_jointly_one_step(
         self,
         target_coords: Tensor,
         target_pixels: Tensor,
@@ -199,76 +207,241 @@ class SparseImageINR:
         guide_pixels: Tensor,
         target_loss_weight: float,
         guide_loss_weight: float,
-    ):
-        assert self.joint_optimizer is not None
+    ) -> tuple[float, Tensor, float, Tensor, float]:
         self.joint_optimizer.zero_grad()
         target_output, _ = self.model(target_coords)
         _, guide_output = self.model(guide_coords)
-        target_loss = self.criterion(target_output, target_pixels)
-        guide_loss = self.criterion(guide_output, guide_pixels)
+        target_loss = self.target_criterion(target_output, target_pixels)
+        guide_loss = self.guide_criterion(guide_output, guide_pixels)
         total_loss = target_loss_weight * target_loss + guide_loss_weight * guide_loss
         _ = total_loss.backward()
         self.joint_optimizer.step()
-        return target_output, target_loss
+        return (
+            total_loss.item(),
+            target_output,
+            target_loss.item(),
+            guide_output,
+            guide_loss.item(),
+        )
 
-    def fit(
+    def fit_target(
         self,
         epochs: int,
+        return_train_metrics: bool,
         return_test_metrics: bool,
+        return_guide_metrics: bool,
         full_image_metrics_interval: int,
-        what: Literal["target", "guide", "jointly"],
-        target_loss_weight: float,
-        guide_loss_weight: float,
     ) -> tuple[
         Tensor,
-        dict[str, Tensor],
-        Tensor | None,
+        dict[str, Tensor] | None,
+        dict[str, Tensor] | None,
+        dict[str, Tensor] | None,
         dict[str, Tensor] | None,
         dict[str, Tensor] | None,
     ]:
-        all_train_loss = torch.zeros(epochs)  # initialize vars to avoid warning
-        all_train_metrics = {name: torch.zeros(epochs) for name in self.metrics}
+        all_train_loss = torch.zeros(epochs)
+        all_train_metrics = None
+        all_test_metrics = None
+        all_full_target_metrics = None
+        all_guide_metrics = None
+        all_full_guide_metrics = None
+
+        if return_train_metrics:
+            all_train_metrics = {
+                name: torch.zeros(epochs) for name in self.target_metrics
+            }
+
         if return_test_metrics:
-            all_test_loss = torch.zeros(epochs)
-            all_test_metrics = {name: torch.zeros(epochs) for name in self.metrics}
+            all_test_metrics = {
+                name: torch.zeros(epochs) for name in self.target_metrics
+            }
             full_image_metric_computations = epochs // full_image_metrics_interval + (
                 epochs % full_image_metrics_interval > 0
             )
-            all_full_image_metrics = {
+            all_full_target_metrics = {
                 name: torch.zeros(full_image_metric_computations)
-                for name in self.full_image_metrics
+                for name in self.full_target_metrics
             }
-        else:
-            all_test_loss = None
-            all_test_metrics = None
-            all_full_image_metrics = None
 
-        coords, pixels = self.train_pixels.tensors
+        if return_guide_metrics:
+            all_guide_metrics = {
+                name: torch.zeros(epochs) for name in self.guide_metrics
+            }
+            full_image_metric_computations = epochs // full_image_metrics_interval + (
+                epochs % full_image_metrics_interval > 0
+            )
+            all_full_guide_metrics = {
+                name: torch.zeros(full_image_metric_computations)
+                for name in self.full_guide_metrics
+            }
+
+        target_coords, target_pixels = self.train_pixels.tensors
+        rescaled_target_pixels = target_pixels * self._scale + self._shift
+        guide_coords, guide_pixels = self.guide_pixels.tensors
+        for i in tqdm(range(epochs)):
+            _ = self.model.train()
+            target_output, target_loss = self._fit_target_one_step(
+                target_coords, target_pixels
+            )
+
+            all_train_loss[i] = target_loss
+
+            rescaled_target_output = target_output * self._scale + self._shift
+
+            if return_train_metrics:
+                assert all_train_metrics is not None
+                for name, metric in self.target_metrics.items():
+                    all_train_metrics[name][i] = metric(
+                        rescaled_target_output, rescaled_target_pixels
+                    ).item()
+
+            if return_test_metrics:
+                assert all_test_metrics is not None
+                assert all_full_target_metrics is not None
+                test_metrics = self.evaluate()
+                for name in self.target_metrics:
+                    all_test_metrics[name][i] = test_metrics[name]
+                assert False, "implement full image metrics"
+
+            if return_guide_metrics:
+                assert all_guide_metrics is not None
+                assert all_full_guide_metrics is not None
+                _, guide_output = self.model(guide_coords)
+                for name, metric in self.guide_metrics.items():
+                    all_guide_metrics[name][i] = metric(
+                        guide_output, guide_pixels
+                    ).item()
+                assert False, "implement full image metrics"
+
+        return (
+            all_train_loss,
+            all_train_metrics,
+            all_test_metrics,
+            all_full_target_metrics,
+            all_guide_metrics,
+            all_full_guide_metrics,
+        )
+
+    def fit_guide(
+        self,
+        epochs: int,
+        return_guide_metrics: int,
+        return_target_test_metrics: int,
+        full_image_metrics_interval: int,
+    ):
+        all_guide_loss = torch.zeros(epochs)
+        all_guide_metrics = None
+        all_full_guide_metrics = None
+        all_test_metrics = None
+        all_full_target_metrics = None
+
+        if return_guide_metrics:
+            all_guide_metrics = {
+                name: torch.zeros(epochs) for name in self.guide_metrics
+            }
+            full_image_metric_computations = epochs // full_image_metrics_interval + (
+                epochs % full_image_metrics_interval > 0
+            )
+            all_full_guide_metrics = {
+                name: torch.zeros(full_image_metric_computations)
+                for name in self.full_guide_metrics
+            }
+
+        if return_target_test_metrics:
+            all_test_metrics = {
+                name: torch.zeros(epochs) for name in self.target_metrics
+            }
+            full_image_metric_computations = epochs // full_image_metrics_interval + (
+                epochs % full_image_metrics_interval > 0
+            )
+            all_full_target_metrics = {
+                name: torch.zeros(full_image_metric_computations)
+                for name in self.full_target_metrics
+            }
+
+        guide_coords, guide_pixels = self.guide_pixels.tensors
+        for i in tqdm(range(epochs)):
+            _ = self.model.train()
+            guide_output, guide_loss = self._fit_guide_one_step(
+                guide_coords, guide_pixels
+            )
+
+            all_guide_loss[i] = guide_loss
+
+            if return_guide_metrics:
+                assert all_guide_metrics is not None
+                assert all_full_guide_metrics is not None
+                for name, metric in self.guide_metrics.items():
+                    all_guide_metrics[name][i] = metric(
+                        guide_output, guide_pixels
+                    ).item()
+                assert False, "implement full image metrics"
+
+            if return_target_test_metrics:
+                assert all_test_metrics is not None
+                assert all_full_target_metrics is not None
+                assert False, "implement full image metrics"
+
+        return (
+            all_guide_loss,
+            all_guide_metrics,
+            all_full_guide_metrics,
+            all_test_metrics,
+            all_full_target_metrics,
+        )
+
+    def fit_jointly(
+        self,
+        epochs: int,
+        return_target_train_metrics: bool,
+        return_target_test_metrics: bool,
+        return_guide_metrics: bool,
+        full_image_metrics_interval: int,
+        target_loss_weight: float,
+        guide_loss_weight: float,
+    ):
+        pass
+
+    def old_fit(self):
+        target_coords, target_pixels = self.train_pixels.tensors
         guide_coords, guide_pixels = self.guide_pixels.tensors
         for i in tqdm(range(epochs)):
             _ = self.model.train()
             if what == "target":
-                output, loss = self.fit_target_one_step(coords, pixels)
+                target_output, target_loss = self._fit_target_one_step(
+                    target_coords, target_pixels
+                )
+                guide_output, guide_loss, total_loss = None, None, None
             elif what == "guide":
-                output, loss = self.fit_guide_one_step(
-                    coords, pixels, guide_coords, guide_pixels
+                guide_output, guide_loss = self._fit_guide_one_step(
+                    guide_coords, guide_pixels
                 )
+                target_output, target_loss, total_loss = None, None, None
             elif what == "jointly":
-                output, loss = self.fit_jointly_one_step(
-                    coords,
-                    pixels,
-                    guide_coords,
-                    guide_pixels,
-                    target_loss_weight,
-                    guide_loss_weight,
+                total_loss, target_output, target_loss, guide_output, guide_loss = (
+                    self._fit_jointly_one_step(
+                        target_coords,
+                        target_pixels,
+                        guide_coords,
+                        guide_pixels,
+                        target_loss_weight,
+                        guide_loss_weight,
+                    )
                 )
-            all_train_loss[i] = loss.item()
+
+            if target_loss is not None:
+                all_train_loss[i] = target_loss
+            if guide_loss is not None:
+                assert all_guide_loss is not None
+                all_guide_loss[i] = guide_loss
             rescaled_output = output * self._scale + self._shift
             rescaled_pixels = pixels * self._scale + self._shift
-            for name, metric in self.metrics.items():
-                all_train_metrics[name][i] = metric(
-                    rescaled_output, rescaled_pixels
-                ).item()
+
+            if all_train_metrics is not None:
+                for name, metric in self.target_metrics.items():
+                    all_train_metrics[name][i] = metric(
+                        rescaled_output, rescaled_pixels
+                    ).item()
 
             if (
                 all_test_loss is not None
@@ -282,11 +455,11 @@ class SparseImageINR:
                     return_full_image_metrics=return_full_image_metrics
                 )
                 if full_image_metrics is not None:
-                    for name in self.full_image_metrics:
+                    for name in self.full_image_target_metrics:
                         j = i // full_image_metrics_interval
                         all_full_image_metrics[name][j] = full_image_metrics[name]
                 all_test_loss[i] = test_loss
-                for name in self.metrics:
+                for name in self.target_metrics:
                     all_test_metrics[name][i] = test_metrics[name]
 
         return (
@@ -306,7 +479,7 @@ class SparseImageINR:
         coords, pixels = self.test_pixels.tensors
         with torch.no_grad():
             output, _ = self.model(coords)
-            loss = self.criterion(output, pixels)
+            loss = self.target_criterion(output, pixels)
             epoch_loss = loss.item()
             rescaled_output = output * self._scale + self._shift
             rescaled_pixels = pixels * self._scale + self._shift
