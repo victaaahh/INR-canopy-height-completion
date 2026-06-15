@@ -17,6 +17,7 @@ datasets/
 outputs/
 multirun/
 wandb/
-notebooks/figures
+notebooks/figures/
+logs/
 
 pyrightconfig.json
