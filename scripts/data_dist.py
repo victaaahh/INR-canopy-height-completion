@@ -1,3 +1,4 @@
+import os
 import sys
 
 sys.path.append("..")
@@ -20,7 +21,7 @@ opencanopy = OpenCanopy(
     "../datasets/canopy_height", split="train", nan_above=float("inf")
 )
 
-sample = np.loadtxt("../../data_management/10000_samples.csv")
+sample = np.loadtxt("../notebooks/data_management/10000_samples.csv")
 
 centercrop = CenterCrop(512)
 
@@ -56,6 +57,8 @@ for i, idx in enumerate(sample):
     means[i] = torch.mean(target).item()
     mean_squares[i] = torch.mean(target * target).item()
 
+if not os.path.exists("data_dist_results"):
+    os.mkdir("data_dist_results")
 np.save("data_dist_results/all_hist.npy", all_hist)
 np.save("data_dist_results/max_heights.npy", max_heights)
 np.save("data_dist_results/min_heights.npy", min_heights)
