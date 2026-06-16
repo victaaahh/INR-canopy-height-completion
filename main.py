@@ -48,13 +48,6 @@ def main(cfg):
             **{f"all_test_{name}": [] for name in metrics_dict},
             **{f"all_full_image_{name}": [] for name in full_image_metrics_dict},
         }
-    if cfg.save_images:
-        results = results | {
-            "target_image": [],
-            "train_mask": [],
-            "reconstructed_target": [],
-            "test_mask": [],
-        }
     for i in cfg.data.opencanopy_indices:
         log.info(f"Fitting on index {i}")
         _, target = opencanopy[i]
@@ -159,20 +152,24 @@ def main(cfg):
             for name, vals in all_full_image_metrics.items():
                 results[f"all_full_image_{name}"].append(vals)
 
-        if (
-            "target_image" in results
-            and "train_mask" in results
-            and "reconstructed_target" in results
-            and "test_mask" in results
-        ):
+        if cfg.save_images:
             target_image = inr.target_image.permute((1, 2, 0))
             train_mask = inr.train_mask
             reconstructed_target = inr.reconstructed_target.permute((1, 2, 0))
             test_mask = inr.test_mask
-            results["target_image"].append(target_image)
-            results["train_mask"].append(train_mask)
-            results["reconstructed_target"].append(reconstructed_target)
-            results["test_mask"].append(test_mask)
+            image_dir = os.path.join(
+                hydra.core.hydra_config.HydraConfig.get().runtime.output_dir, "images"
+            )
+            if not os.path.exists(image_dir):
+                os.mkdir(image_dir)
+            image_filenames = {
+                f"{i}_target_image.pt": target_image,
+                f"{i}_train_mask.pt": train_mask,
+                f"{i}_reconstructed_target.pt": reconstructed_target,
+                f"{i}_test_mask.pt": test_mask,
+            }
+            for name, img in image_filenames.items():
+                torch.save(img, os.path.join(image_dir, name))
 
     table = pd.DataFrame(results)
     table.to_pickle(
