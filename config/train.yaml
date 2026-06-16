@@ -45,6 +45,7 @@ full_image_metrics:
       device: ${device}
 
 data:
+  split: train
   opencanopy_indices: [42, 262, 488, 819, 1043]
   test_grid_skip: 2
   sparsity: 0.5
@@ -52,6 +53,7 @@ data:
   normalization_scale: 85.56
   nan_above: 600
   full_image_metrics_fill_na: 0.0
+  zero_ratio_cutoff: 0.99
 
 dataloader:
   batch_size:
