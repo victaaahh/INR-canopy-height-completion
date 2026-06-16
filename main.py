@@ -162,13 +162,13 @@ def main(cfg):
             )
             if not os.path.exists(image_dir):
                 os.mkdir(image_dir)
-            image_names = {
-                f"{i}_target_image": target_image,
-                f"{i}_train_mask": train_mask,
-                f"{i}_reconstructed_target": reconstructed_target,
-                f"{i}_test_mask": test_mask,
+            image_filenames = {
+                f"{i}_target_image.pt": target_image,
+                f"{i}_train_mask.pt": train_mask,
+                f"{i}_reconstructed_target.pt": reconstructed_target,
+                f"{i}_test_mask.pt": test_mask,
             }
-            for name, img in image_names.items():
+            for name, img in image_filenames.items():
                 torch.save(img, os.path.join(image_dir, name))
 
     table = pd.DataFrame(results)
