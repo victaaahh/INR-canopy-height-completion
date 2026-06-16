@@ -59,7 +59,7 @@ def main(cfg):
         _, target = opencanopy[i]
         target = centercrop(target)
         zero_ratio = torch.sum(target == 0.0) / torch.numel(target)
-        if zero_ratio > cfg.zero_ratio_cutoff:
+        if zero_ratio > cfg.data.zero_ratio_cutoff:
             log.warning(
                 f"Opencanopy index {i} has {zero_ratio * 100:.2f}% > "
                 + f"{cfg.data.zero_ratio_cutoff * 100:.2f} zeroes and will be skipped"
