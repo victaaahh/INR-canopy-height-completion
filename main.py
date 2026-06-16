@@ -56,6 +56,7 @@ def main(cfg):
             "test_mask": [],
         }
     for i in cfg.data.opencanopy_indices:
+        log.info(f"Fitting on index {i}")
         _, target = opencanopy[i]
         target = centercrop(target)
         zero_ratio = torch.sum(target == 0.0) / torch.numel(target)
