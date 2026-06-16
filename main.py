@@ -62,7 +62,7 @@ def main(cfg):
         if zero_ratio > cfg.data.zero_ratio_cutoff:
             log.warning(
                 f"Opencanopy index {i} has {zero_ratio * 100:.2f}% > "
-                + f"{cfg.data.zero_ratio_cutoff * 100:.2f} zeroes and will be skipped"
+                + f"{cfg.data.zero_ratio_cutoff * 100:.2f}% zeroes and will be skipped"
             )
             results["opencanopy_idx"].remove(i)
             continue
