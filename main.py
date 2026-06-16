@@ -58,7 +58,7 @@ def main(cfg):
     for i in cfg.data.opencanopy_indices:
         _, target = opencanopy[i]
         target = centercrop(target)
-        zero_ratio = torch.sum(target == 0.0) / torch.prod(target.shape)
+        zero_ratio = torch.sum(target == 0.0) / torch.numel(target)
         if zero_ratio > cfg.zero_ratio_cutoff:
             log.warning(
                 f"Opencanopy index {i} has {zero_ratio * 100:.2f}% > "
