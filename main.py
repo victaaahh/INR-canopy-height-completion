@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg):
     opencanopy = OpenCanopy(
-        "datasets/canopy_height", split="train", nan_above=cfg.data.nan_above
+        "datasets/canopy_height", split=cfg.data.split, nan_above=cfg.data.nan_above
     )
     centercrop = CenterCrop(512)
     device = torch.device(cfg.device)
@@ -49,8 +49,17 @@ def main(cfg):
             **{f"all_full_image_{name}": [] for name in full_image_metrics_dict},
         }
     for i in cfg.data.opencanopy_indices:
+        log.info(f"Fitting on index {i}")
         _, target = opencanopy[i]
         target = centercrop(target)
+        zero_ratio = torch.sum(target == 0.0) / torch.numel(target)
+        if zero_ratio > cfg.data.zero_ratio_cutoff:
+            log.warning(
+                f"Opencanopy index {i} has {zero_ratio * 100:.2f}% > "
+                + f"{cfg.data.zero_ratio_cutoff * 100:.2f}% zeroes and will be skipped"
+            )
+            results["opencanopy_idx"].remove(i)
+            continue
         model = hydra.utils.instantiate(cfg.model).to(device)
         if "_target_" in cfg.optimizer:
             optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
