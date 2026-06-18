@@ -180,7 +180,7 @@ def main(cfg):
             "results.pickle",
         )
     )
-    return table["test_loss"].mean()  # return value used by optuna
+    return table["test_rescaled_loss"].mean()  # return value used by optuna
 
 
 if __name__ == "__main__":
