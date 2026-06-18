@@ -8,7 +8,7 @@ defaults:
 
 device: cuda
 epochs: 1000
-save_images: true
+save_images: true # only the final images
 save_running_metrics: true
 full_image_metrics_interval: 10
 seed: 8182
@@ -19,7 +19,7 @@ criterion:
 metrics: # metrics are computed on rescaled/non-normalized output
   - PSNR:
       _target_: src.utils.metrics.PSNR
-      data_range: 6000
+      data_range: ${data.nan_above}
   - RMSE:
       _target_: src.utils.metrics.RMSE
   - MAE:
@@ -30,14 +30,14 @@ metrics: # metrics are computed on rescaled/non-normalized output
       _target_: src.utils.metrics.R2
   - full_window_SSIM:
       _target_: src.utils.metrics.full_window_SSIM
-      data_range: 6000
+      data_range: ${data.nan_above}
       k_1: 0.01
       k_2: 0.03
 
 full_image_metrics:
   - SSIM:
       _target_: src.utils.metrics.SSIM
-      data_range: 6000
+      data_range: ${data.nan_above}
       k_1: 0.01
       k_2: 0.03
       gaussian_kernel: true
@@ -50,8 +50,8 @@ data:
   opencanopy_indices: [42, 262, 488, 819, 1043]
   test_grid_skip: 2
   sparsity: 0.5
-  normalization_shift: 58.85
-  normalization_scale: 85.56
+  normalization_shift: 60.57
+  normalization_scale: 85.86
   nan_above: 600
   full_image_metrics_fill_na: 0.0
   zero_ratio_cutoff: 0.99
