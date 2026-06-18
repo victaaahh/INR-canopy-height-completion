@@ -15,6 +15,8 @@ log = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg):
+    seed = cfg.seed
+    torch.manual_seed(seed)
     opencanopy = OpenCanopy(
         "datasets/canopy_height", split=cfg.data.split, nan_above=cfg.data.nan_above
     )
