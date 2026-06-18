@@ -10,7 +10,7 @@ device: cuda
 epochs: 1000
 save_images: true # only the final images
 save_running_metrics: true
-full_image_metrics_interval: 10
+full_image_metrics_interval: 50
 seed: 8182
 
 criterion:
