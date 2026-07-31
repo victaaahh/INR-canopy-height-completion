@@ -15,10 +15,12 @@ epochs2: null
 fit2: null
 
 device: cuda
-save_canopy_height_maps: true
-save_guide_images: true
+seed: 8182
+
+save_images: true # only the final images
 save_running_metrics: true
-full_image_metrics_interval: 10
+full_image_metrics_interval: 50
+
 target_loss_weight: 0.5 # loss weights are used when jointly fitting
 guide_loss_weight: 0.5
 
@@ -31,7 +33,7 @@ guide_criterion:
 metrics: # metrics are computed on rescaled/non-normalized output
   - PSNR:
       _target_: src.utils.metrics.PSNR
-      data_range: 6000
+      data_range: ${data.nan_above}
   - RMSE:
       _target_: src.utils.metrics.RMSE
   - MAE:
@@ -42,14 +44,14 @@ metrics: # metrics are computed on rescaled/non-normalized output
       _target_: src.utils.metrics.R2
   - full_window_SSIM:
       _target_: src.utils.metrics.full_window_SSIM
-      data_range: 6000
+      data_range: ${data.nan_above}
       k_1: 0.01
       k_2: 0.03
 
 full_image_metrics:
   - SSIM:
       _target_: src.utils.metrics.SSIM
-      data_range: 6000
+      data_range: ${data.nan_above}
       k_1: 0.01
       k_2: 0.03
       gaussian_kernel: true
@@ -58,15 +60,17 @@ full_image_metrics:
       device: ${device}
 
 data:
+  split: train
   opencanopy_indices: [42, 262, 488, 819, 1043]
   test_grid_skip: 2
   sparsity: 0.5
-  target_normalization_shift: 58.85
-  target_normalization_scale: 85.56
+  target_normalization_shift: 60.57
+  target_normalization_scale: 85.86
   guide_normalization_shift: 0.0
   guide_normalization_scale: 256.0
   nan_above: 600
   full_image_metrics_fill_na: 0.0
+  zero_ratio_cutoff: 0.99
 
 hydra:
   run:

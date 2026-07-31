@@ -43,8 +43,10 @@ def create_optimizer(cfg, model):
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg):
+    seed = cfg.seed
+    torch.manual_seed(seed)
     opencanopy = OpenCanopy(
-        "datasets/canopy_height", split="train", nan_above=cfg.data.nan_above
+        "datasets/canopy_height", split=cfg.data.split, nan_above=cfg.data.nan_above
     )
     centercrop = CenterCrop(512)
     device = torch.device(cfg.device)
@@ -77,18 +79,18 @@ def main(cfg):
             **{f"all_test_{name}": [] for name in metrics_dict},
             **{f"all_full_image_{name}": [] for name in full_image_metrics_dict},
         }
-    if cfg.save_canopy_height_maps:
-        results = results | {
-            "target_image": [],
-            "train_mask": [],
-            "reconstructed_target": [],
-            "test_mask": [],
-        }
-    if cfg.save_guide_images:
-        results = results | {"guide_image": [], "reconstructed_guide": []}
     for i in cfg.data.opencanopy_indices:
+        log.info(f"Fitting on index {i}")
         guide, target = opencanopy[i]
         target = centercrop(target)
+        zero_ratio = torch.sum(target == 0.0) / torch.numel(target)
+        if zero_ratio > cfg.data.zero_ratio_cutoff:
+            log.warning(
+                f"Opencanopy index {i} has {zero_ratio * 100:.2f}% > "
+                + f"{cfg.data.zero_ratio_cutoff * 100:.2f}% zeroes and will be skipped"
+            )
+            results["opencanopy_idx"].remove(i)
+            continue
         model = hydra.utils.instantiate(cfg.model).to(device)
         target_optimizer = create_optimizer(cfg.target_optimizer, model)
         if cfg.guide_optimizer.get("share_with_target", False):
@@ -196,32 +198,29 @@ def main(cfg):
             for name, vals in all_full_image_metrics.items():
                 results[f"all_full_image_{name}"].append(vals)
 
-        if (
-            "target_image" in results
-            and "train_mask" in results
-            and "reconstructed_target" in results
-            and "test_mask" in results
-        ):
+        if cfg.save_images:
             target_image = inr.target_image.permute((1, 2, 0))
+            guide_image = inr.guide_image.permute((1, 2, 0))
             train_mask = inr.train_mask
+            test_mask = inr.test_mask
             reconstructed_images = inr.reconstructed_images
             reconstructed_target = reconstructed_images[0].permute((1, 2, 0))
-            test_mask = inr.test_mask
-            results["target_image"].append(target_image)
-            results["train_mask"].append(train_mask)
-            results["reconstructed_target"].append(reconstructed_target)
-            results["test_mask"].append(test_mask)
-        else:
-            reconstructed_images = None
-
-        if "guide_image" in results and "reconstructed_guide" in results:
-            if reconstructed_images is not None:
-                reconstructed_guide = reconstructed_images[1].permute((1, 2, 0))
-            else:
-                reconstructed_guide = inr.reconstructed_images[1].permute((1, 2, 0))
-            guide_image = inr.guide_image.permute((1, 2, 0))
-            results["guide_image"].append(guide_image)
-            results["reconstructed_guide"].append(reconstructed_guide)
+            reconstructed_guide = reconstructed_images[1].permute((1, 2, 0))
+            image_dir = os.path.join(
+                hydra.core.hydra_config.HydraConfig.get().runtime.output_dir, "images"
+            )
+            if not os.path.exists(image_dir):
+                os.mkdir(image_dir)
+            image_filenames = {
+                f"{i}_target_image.pt": target_image,
+                f"{i}_guide_image.pt", guide_image,
+                f"{i}_train_mask.pt": train_mask,
+                f"{i}_test_mask.pt": test_mask,
+                f"{i}_reconstructed_target.pt": reconstructed_target,
+                f"{i}_reconstructed_guide.pt": reconstructed_guide,
+            }
+            for name, img in image_filenames.items():
+                torch.save(img, os.path.join(image_dir, name))
 
     table = pd.DataFrame(results)
     table.to_pickle(
@@ -230,7 +229,7 @@ def main(cfg):
             "results.pickle",
         )
     )
-    return table["test_loss"].mean()  # return value used by optuna
+    return table["test_rescaled_loss"].mean()  # return value used by optuna
 
 
 if __name__ == "__main__":

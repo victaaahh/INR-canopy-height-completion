@@ -54,7 +54,7 @@ class SparseImageINR:
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
 
-        non_nan_values = self._target_image[~target_image.isnan()]
+        non_nan_values = self._target_image[~self._target_image.isnan()]
         if (
             target_normalization_scale == "individual_min_max"
             and target_normalization_shift == "individual_min_max"
