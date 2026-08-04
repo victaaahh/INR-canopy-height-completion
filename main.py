@@ -82,7 +82,7 @@ def main(cfg):
     for i in cfg.data.opencanopy_indices:
         log.info(f"Fitting on index {i}")
         guide, target = opencanopy[i]
-        target = centercrop(target)
+        guide, target = centercrop(guide), centercrop(target)
         zero_ratio = torch.sum(target == 0.0) / torch.numel(target)
         if zero_ratio > cfg.data.zero_ratio_cutoff:
             log.warning(
@@ -123,8 +123,8 @@ def main(cfg):
             guide_criterion=guide_criterion,
             target_metrics=target_metrics_dict,
             guide_metrics=guide_metrics_dict,
-            full_image_target_metrics=full_image_target_metrics_dict,
-            full_image_guide_metrics=full_image_guide_metrics_dict,
+            full_target_metrics=full_image_target_metrics_dict,
+            full_guide_metrics=full_image_guide_metrics_dict,
             device=device,
         )
 
@@ -213,7 +213,7 @@ def main(cfg):
                 os.mkdir(image_dir)
             image_filenames = {
                 f"{i}_target_image.pt": target_image,
-                f"{i}_guide_image.pt", guide_image,
+                f"{i}_guide_image.pt": guide_image,
                 f"{i}_train_mask.pt": train_mask,
                 f"{i}_test_mask.pt": test_mask,
                 f"{i}_reconstructed_target.pt": reconstructed_target,
