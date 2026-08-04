@@ -209,7 +209,9 @@ class SparseImageINR:
         guide_loss_weight: float,
     ) -> tuple[float, Tensor, float, Tensor, float]:
         self.joint_optimizer.zero_grad()
-        target_output, _ = self.model(target_coords)
+        target_output, _ = self.model(
+            target_coords
+        )  # this can be optimized by getting output once and using training mask
         _, guide_output = self.model(guide_coords)
         target_loss = self.target_criterion(target_output, target_pixels)
         guide_loss = self.guide_criterion(guide_output, guide_pixels)
@@ -402,73 +404,73 @@ class SparseImageINR:
     ):
         pass
 
-    def old_fit(self):
-        target_coords, target_pixels = self.train_pixels.tensors
-        guide_coords, guide_pixels = self.guide_pixels.tensors
-        for i in tqdm(range(epochs)):
-            _ = self.model.train()
-            if what == "target":
-                target_output, target_loss = self._fit_target_one_step(
-                    target_coords, target_pixels
-                )
-                guide_output, guide_loss, total_loss = None, None, None
-            elif what == "guide":
-                guide_output, guide_loss = self._fit_guide_one_step(
-                    guide_coords, guide_pixels
-                )
-                target_output, target_loss, total_loss = None, None, None
-            elif what == "jointly":
-                total_loss, target_output, target_loss, guide_output, guide_loss = (
-                    self._fit_jointly_one_step(
-                        target_coords,
-                        target_pixels,
-                        guide_coords,
-                        guide_pixels,
-                        target_loss_weight,
-                        guide_loss_weight,
-                    )
-                )
+    # def old_fit(self):
+    #    target_coords, target_pixels = self.train_pixels.tensors
+    #    guide_coords, guide_pixels = self.guide_pixels.tensors
+    #    for i in tqdm(range(epochs)):
+    #        _ = self.model.train()
+    #        if what == "target":
+    #            target_output, target_loss = self._fit_target_one_step(
+    #                target_coords, target_pixels
+    #            )
+    #            guide_output, guide_loss, total_loss = None, None, None
+    #        elif what == "guide":
+    #            guide_output, guide_loss = self._fit_guide_one_step(
+    #                guide_coords, guide_pixels
+    #            )
+    #            target_output, target_loss, total_loss = None, None, None
+    #        elif what == "jointly":
+    #            total_loss, target_output, target_loss, guide_output, guide_loss = (
+    #                self._fit_jointly_one_step(
+    #                    target_coords,
+    #                    target_pixels,
+    #                    guide_coords,
+    #                    guide_pixels,
+    #                    target_loss_weight,
+    #                    guide_loss_weight,
+    #                )
+    #            )
 
-            if target_loss is not None:
-                all_train_loss[i] = target_loss
-            if guide_loss is not None:
-                assert all_guide_loss is not None
-                all_guide_loss[i] = guide_loss
-            rescaled_output = output * self._scale + self._shift
-            rescaled_pixels = pixels * self._scale + self._shift
+    #        if target_loss is not None:
+    #            all_train_loss[i] = target_loss
+    #        if guide_loss is not None:
+    #            assert all_guide_loss is not None
+    #            all_guide_loss[i] = guide_loss
+    #        rescaled_output = output * self._scale + self._shift
+    #        rescaled_pixels = pixels * self._scale + self._shift
 
-            if all_train_metrics is not None:
-                for name, metric in self.target_metrics.items():
-                    all_train_metrics[name][i] = metric(
-                        rescaled_output, rescaled_pixels
-                    ).item()
+    #        if all_train_metrics is not None:
+    #            for name, metric in self.target_metrics.items():
+    #                all_train_metrics[name][i] = metric(
+    #                    rescaled_output, rescaled_pixels
+    #                ).item()
 
-            if (
-                all_test_loss is not None
-                and all_test_metrics is not None
-                and all_full_image_metrics is not None
-            ):
-                return_full_image_metrics = (
-                    i + 1
-                ) % full_image_metrics_interval == 0 or i == epochs - 1
-                test_loss, test_metrics, full_image_metrics = self.evaluate(
-                    return_full_image_metrics=return_full_image_metrics
-                )
-                if full_image_metrics is not None:
-                    for name in self.full_image_target_metrics:
-                        j = i // full_image_metrics_interval
-                        all_full_image_metrics[name][j] = full_image_metrics[name]
-                all_test_loss[i] = test_loss
-                for name in self.target_metrics:
-                    all_test_metrics[name][i] = test_metrics[name]
+    #        if (
+    #            all_test_loss is not None
+    #            and all_test_metrics is not None
+    #            and all_full_image_metrics is not None
+    #        ):
+    #            return_full_image_metrics = (
+    #                i + 1
+    #            ) % full_image_metrics_interval == 0 or i == epochs - 1
+    #            test_loss, test_metrics, full_image_metrics = self.evaluate(
+    #                return_full_image_metrics=return_full_image_metrics
+    #            )
+    #            if full_image_metrics is not None:
+    #                for name in self.full_image_target_metrics:
+    #                    j = i // full_image_metrics_interval
+    #                    all_full_image_metrics[name][j] = full_image_metrics[name]
+    #            all_test_loss[i] = test_loss
+    #            for name in self.target_metrics:
+    #                all_test_metrics[name][i] = test_metrics[name]
 
-        return (
-            all_train_loss,
-            all_train_metrics,
-            all_test_loss,
-            all_test_metrics,
-            all_full_image_metrics,
-        )
+    #    return (
+    #        all_train_loss,
+    #        all_train_metrics,
+    #        all_test_loss,
+    #        all_test_metrics,
+    #        all_full_image_metrics,
+    #    )
 
     def evaluate(
         self, return_full_image_metrics: bool
