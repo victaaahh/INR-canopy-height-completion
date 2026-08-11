@@ -305,6 +305,7 @@ class SparseImageINR:
                     target_output = full_target_output[self.train_mask.flatten()]
                 else:
                     loss, target_output, _ = self._fit_target_one_step(False)
+                    full_target_output, guide_output = None, None
             elif what == "guide":
                 loss, full_target_output, guide_output = self._fit_guide_one_step()
                 target_output = full_target_output[self.train_mask.flatten()]
@@ -344,7 +345,7 @@ class SparseImageINR:
                     full_target_metrics,
                     full_guide_metrics,
                 ) = self.evaluate(
-                    to_eval, return_full_image_metrics
+                    to_eval, return_full_image_metrics, full_target_output, guide_output
                 )  # an extra potentially unnecessary model forward happen here
 
                 if return_target_test_metrics:
@@ -383,7 +384,11 @@ class SparseImageINR:
         )
 
     def evaluate(
-        self, what: Literal["target", "guide", "both"], return_full_image_metrics: bool
+        self,
+        what: Literal["target", "guide", "both"],
+        return_full_image_metrics: bool,
+        full_target_output: Tensor | None,
+        guide_output: Tensor | None,
     ) -> tuple[
         dict[str, float] | None,
         dict[str, float] | None,
@@ -398,12 +403,17 @@ class SparseImageINR:
         _ = self.model.eval()
 
         with torch.no_grad():
-            if what == "target" and not return_full_image_metrics:
-                target_output, _ = self.model(self.train_coords)
+            if full_target_output is not None and guide_output is not None:
+                target_output = full_target_output[self.test_mask.flatten()]
+                rescaled_guide_output = guide_output * self._scale + self._shift
+            elif what == "target" and not return_full_image_metrics:
+                target_output, _ = self.model(self.test_coords)
                 rescaled_guide_output = None
             else:
                 full_target_output, guide_output = self.model(self.guide_coords)
-                target_output = full_target_output[self.train_mask.flatten()]
+                assert full_target_output is not None
+                assert guide_output is not None
+                target_output = full_target_output[self.test_mask.flatten()]
                 rescaled_guide_output = guide_output * self._scale + self._shift
 
             rescaled_target_output = target_output * self._scale + self._shift
@@ -457,5 +467,4 @@ class SparseImageINR:
 
 
 # todo
-# avoid unneccesary model forward (as commented)
 # get both loss components when training jointly. Maybe define new closure for loss-functions such that they take both inputs every time and can also return components. This would also allow for different more complicated loss functions with multiple components and monitoring of them
