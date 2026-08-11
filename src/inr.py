@@ -398,7 +398,9 @@ class SparseImageINR:
 
     def evaluate(
         self,
-        what: Literal["target", "guide", "both"],
+        target_train: bool,
+        target_test: bool,
+        guide: bool,
         return_full_image_metrics: bool,
         full_target_output: Tensor | None,
         guide_output: Tensor | None,
@@ -407,38 +409,84 @@ class SparseImageINR:
         dict[str, float] | None,
         dict[str, float] | None,
         dict[str, float] | None,
+        dict[str, float] | None,
     ]:
-        target_metrics = None
+        target_train_metrics = None
+        target_test_metrics = None
         guide_metrics = None
         full_target_metrics = None
         full_guide_metrics = None
 
         _ = self.model.eval()
 
+        if return_full_image_metrics and not (target_test or guide):
+            raise ValueError(
+                "Full image metrics are considered a subset of target_test and guide"
+            )
+
         with torch.no_grad():
             if full_target_output is not None and guide_output is not None:
-                target_output = full_target_output[self.test_mask.flatten()]
                 rescaled_guide_output = guide_output * self._scale + self._shift
-            elif what == "target" and not return_full_image_metrics:
-                target_output, _ = self.model(self.test_coords)
+                target_test_output = full_target_output[self.test_mask.flatten()]
+                target_train_output = full_target_output[self.train_mask.flatten()]
+                rescaled_target_train_output = (
+                    target_train_output * self._scale + self._shift
+                )
+                rescaled_target_test_output = (
+                    target_test_output * self._scale + self._shift
+                )
+            elif target_train and not target_test and not guide:
+                target_train_output, _ = self.model(self.train_coords)
+                rescaled_target_train_output = (
+                    target_train_output * self._scale + self._shift
+                )
+                rescaled_target_test_output = None
+                rescaled_guide_output = None
+            elif (
+                target_test
+                and not target_train
+                and not guide
+                and not return_full_image_metrics
+            ):
+                target_test_output, _ = self.model(self.test_coords)
+                rescaled_target_test_output = (
+                    target_test_output * self._scale + self._shift
+                )
+                rescaled_target_train_output = None
                 rescaled_guide_output = None
             else:
                 full_target_output, guide_output = self.model(self.guide_coords)
                 assert full_target_output is not None
                 assert guide_output is not None
-                target_output = full_target_output[self.test_mask.flatten()]
                 rescaled_guide_output = guide_output * self._scale + self._shift
+                target_test_output = full_target_output[self.test_mask.flatten()]
+                target_train_output = full_target_output[self.train_mask.flatten()]
+                rescaled_target_train_output = (
+                    target_train_output * self._scale + self._shift
+                )
+                rescaled_target_test_output = (
+                    target_test_output * self._scale + self._shift
+                )
 
-            rescaled_target_output = target_output * self._scale + self._shift
-
-            if what == "target" or what == "both":
-                target_metrics = {
+            if target_train:
+                assert rescaled_target_train_output is not None
+                target_train_metrics = {
                     name: metric(
-                        rescaled_target_output, self.rescaled_test_pixels
+                        rescaled_target_train_output, self.rescaled_train_pixels
                     ).item()
                     for name, metric in self.target_metrics.items()
                 }
-            if what == "guide" or what == "both":
+
+            if target_test:
+                assert rescaled_target_test_output is not None
+                target_test_metrics = {
+                    name: metric(
+                        rescaled_target_test_output, self.rescaled_test_pixels
+                    ).item()
+                    for name, metric in self.target_metrics.items()
+                }
+
+            if guide:
                 assert rescaled_guide_output is not None
                 guide_metrics = {
                     name: metric(
@@ -449,13 +497,17 @@ class SparseImageINR:
 
             if return_full_image_metrics:
                 assert rescaled_guide_output is not None
+                assert full_target_output is not None
+                rescaled_full_target_output = (
+                    full_target_output * self._scale + self._shift
+                )
                 target_image = self._rescaled_target_image.clone().to(self.device)
                 nan_inds = torch.where(target_image.isnan())
                 target_image[nan_inds] = self.full_image_metrics_fill_na
 
                 guide_image = self._rescaled_guide_image.clone().to(self.device)
 
-                reconstructed_target = rescaled_target_output.reshape(
+                reconstructed_target = rescaled_full_target_output.reshape(
                     self._target_width, self._target_width, self._target_channels
                 )
                 reconstructed_guide = rescaled_guide_output.reshape(
@@ -465,15 +517,22 @@ class SparseImageINR:
                 reconstructed_target[nan_inds] = self.full_image_metrics_fill_na
                 reconstructed_guide = reconstructed_guide.clone().to(self.device)
 
-                if what == "target" or what == "both":
+                if target_test:
                     full_target_metrics = {
                         name: metric(reconstructed_target, target_image).item()
                         for name, metric in self.full_target_metrics.items()
                     }
-                if what == "guide" or what == "both":
+
+                if guide:
                     full_guide_metrics = {
                         name: metric(reconstructed_guide, guide_image).item()
                         for name, metric in self.full_guide_metrics.items()
                     }
 
-        return target_metrics, guide_metrics, full_target_metrics, full_guide_metrics
+        return (
+            target_train_metrics,
+            target_test_metrics,
+            guide_metrics,
+            full_target_metrics,
+            full_guide_metrics,
+        )
