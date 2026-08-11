@@ -218,7 +218,7 @@ class SparseImageINR:
         self,
         target_loss_weight: float,
         guide_loss_weight: float,
-    ) -> tuple[float, Tensor, Tensor]:
+    ) -> tuple[float, float, float, Tensor, Tensor]:
         self.joint_optimizer.zero_grad()
         full_target_output, guide_output = self.model(self.guide_coords)
         target_output = full_target_output[self.train_mask.flatten()]
@@ -229,8 +229,8 @@ class SparseImageINR:
         self.joint_optimizer.step()
         return (
             total_loss.item(),
-            # target_loss.item(),
-            # guide_loss.item(),
+            target_loss.item(),
+            guide_loss.item(),
             full_target_output,
             guide_output,
         )
@@ -247,16 +247,24 @@ class SparseImageINR:
         guide_loss_weight: float | None,
     ) -> tuple[
         Tensor,
+        Tensor | None,
+        Tensor | None,
         dict[str, Tensor] | None,
         dict[str, Tensor] | None,
         dict[str, Tensor] | None,
         dict[str, Tensor] | None,
         dict[str, Tensor] | None,
     ]:
-        if what == "jointly" and (
-            target_loss_weight is None or guide_loss_weight is None
-        ):
-            raise ValueError("You have to provide loss weights when fitting jointly")
+        if what == "jointly":
+            all_target_loss = torch.zeros(epochs)
+            all_guide_loss = torch.zeros(epochs)
+            if target_loss_weight is None or guide_loss_weight is None:
+                raise ValueError(
+                    "You have to provide loss weights when fitting jointly"
+                )
+        else:
+            all_target_loss = None
+            all_guide_loss = None
 
         all_train_metrics = None
         all_test_metrics = None
@@ -311,10 +319,13 @@ class SparseImageINR:
                 target_output = full_target_output[self.train_mask.flatten()]
             elif what == "jointly":
                 assert target_loss_weight is not None and guide_loss_weight is not None
-                loss, full_target_output, guide_output = self._fit_jointly_one_step(
-                    target_loss_weight, guide_loss_weight
+                assert all_target_loss is not None and all_guide_loss is not None
+                loss, target_loss, guide_loss, full_target_output, guide_output = (
+                    self._fit_jointly_one_step(target_loss_weight, guide_loss_weight)
                 )
                 target_output = full_target_output[self.train_mask.flatten()]
+                all_target_loss[i] = target_loss
+                all_guide_loss[i] = guide_loss
             else:
                 raise ValueError("Choose between target, guide or jointly")
 
@@ -346,7 +357,7 @@ class SparseImageINR:
                     full_guide_metrics,
                 ) = self.evaluate(
                     to_eval, return_full_image_metrics, full_target_output, guide_output
-                )  # an extra potentially unnecessary model forward happen here
+                )
 
                 if return_target_test_metrics:
                     assert all_test_metrics is not None
@@ -376,6 +387,8 @@ class SparseImageINR:
 
         return (
             all_loss,
+            all_target_loss,
+            all_guide_loss,
             all_train_metrics,
             all_test_metrics,
             all_full_target_metrics,
@@ -464,7 +477,3 @@ class SparseImageINR:
                     }
 
         return target_metrics, guide_metrics, full_target_metrics, full_guide_metrics
-
-
-# todo
-# get both loss components when training jointly. Maybe define new closure for loss-functions such that they take both inputs every time and can also return components. This would also allow for different more complicated loss functions with multiple components and monitoring of them
