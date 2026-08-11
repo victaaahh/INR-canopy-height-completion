@@ -1,11 +1,14 @@
 import logging
 import os
+from collections.abc import Callable
 
 import hydra
 import pandas as pd
 import torch
 from hydra.core.hydra_config import HydraConfig
 from muon import SingleDeviceMuonWithAuxAdam
+from omegaconf.dictconfig import DictConfig
+from torch import Tensor
 from torchvision.transforms.v2 import CenterCrop
 
 from src import SparseImageINR
@@ -14,7 +17,7 @@ from src.data import OpenCanopy
 log = logging.getLogger(__name__)
 
 
-def create_optimizer(cfg, model):
+def create_optimizer(cfg: DictConfig, model: torch.nn.Module) -> torch.optim.Optimizer:
     if "_target_" in cfg:
         optimizer = hydra.utils.instantiate(cfg)(model.parameters())
     elif "muon" in cfg:
@@ -41,10 +44,103 @@ def create_optimizer(cfg, model):
     return optimizer
 
 
+def generate_results_dict(
+    stage: str,
+    save_running_target_metrics: bool,
+    save_running_guide_metrics: bool,
+    target_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
+    full_target_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
+    guide_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
+    full_guide_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
+) -> dict[str, list[float | Tensor]]:
+    results: dict[str, list[float | Tensor]] = {
+        f"{stage}_train_loss": [],
+        f"{stage}_all_train_loss": [],
+        **{f"{stage}_target_train_{name}": [] for name in target_metrics_dict},
+        **{f"{stage}_target_test_{name}": [] for name in target_metrics_dict},
+        **{f"{stage}_target_full_{name}": [] for name in full_target_metrics_dict},
+        **{f"{stage}_guide_{name}": [] for name in guide_metrics_dict},
+        **{f"{stage}_guide_full_{name}": [] for name in full_guide_metrics_dict},
+    }
+    if save_running_target_metrics:
+        results = results | {
+            **{f"{stage}_all_target_train_{name}": [] for name in target_metrics_dict},
+            **{f"{stage}_all_target_test_{name}": [] for name in target_metrics_dict},
+            **{
+                f"{stage}_all_target_full_{name}": []
+                for name in full_target_metrics_dict
+            },
+        }
+    if save_running_guide_metrics:
+        results = results | {
+            **{f"{stage}_all_guide_{name}": [] for name in guide_metrics_dict},
+            **{
+                f"{stage}_all_guide_full_{name}": [] for name in full_guide_metrics_dict
+            },
+        }
+
+    return results
+
+
+def append_results(
+    results_dict: dict[str, list[float | Tensor]],
+    stage: str,
+    all_loss: Tensor,
+    all_target_loss: Tensor | None,
+    all_guide_loss: Tensor | None,
+    all_train_metrics: dict[str, Tensor] | None,
+    all_test_metrics: dict[str, Tensor] | None,
+    all_full_target_metrics: dict[str, Tensor] | None,
+    all_guide_metrics: dict[str, Tensor] | None,
+    all_full_guide_metrics: dict[str, Tensor] | None,
+    final_target_train_metrics: dict[str, float],
+    final_target_test_metrics: dict[str, float],
+    final_guide_metrics: dict[str, float],
+    final_full_target_metrics: dict[str, float],
+    final_full_guide_metrics: dict[str, float],
+):
+    results_dict[f"{stage}_train_loss"].append(all_loss[-1].item())
+    results_dict[f"{stage}_all_train_loss"].append(all_loss)
+    if all_train_metrics is not None:
+        for name, vals in all_train_metrics.items():
+            results_dict[f"{stage}_all_target_train_{name}"].append(vals)
+
+    if all_test_metrics is not None:
+        for name, vals in all_test_metrics.items():
+            results_dict[f"{stage}_all_target_test_{name}"].append(vals)
+
+    if all_full_target_metrics is not None:
+        for name, vals in all_full_target_metrics.items():
+            results_dict[f"{stage}_all_target_full_{name}"].append(vals)
+
+    if all_guide_metrics is not None:
+        for name, vals in all_guide_metrics.items():
+            results_dict[f"{stage}_all_guide_{name}"].append(vals)
+
+    if all_full_guide_metrics is not None:
+        for name, vals in all_full_guide_metrics.items():
+            results_dict[f"{stage}_all_guide_full_{name}"].append(vals)
+
+    for name, val in final_target_train_metrics.items():
+        results_dict[f"{stage}_target_train_{name}"].append(val)
+
+    for name, val in final_target_test_metrics.items():
+        results_dict[f"{stage}_target_test_{name}"].append(val)
+
+    for name, val in final_guide_metrics.items():
+        results_dict[f"{stage}_guide_{name}"].append(val)
+
+    for name, val in final_full_target_metrics.items():
+        results_dict[f"{stage}_target_full_{name}"].append(val)
+
+    for name, val in final_full_guide_metrics.items():
+        results_dict[f"{stage}_guide_full_{name}"].append(val)
+
+
 @hydra.main(version_base=None, config_path="config", config_name="train")
-def main(cfg):
+def main(cfg: DictConfig) -> float:
     seed = cfg.seed
-    torch.manual_seed(seed)
+    _ = torch.manual_seed(seed)
     opencanopy = OpenCanopy(
         "datasets/canopy_height", split=cfg.data.split, nan_above=cfg.data.nan_above
     )
@@ -53,32 +149,48 @@ def main(cfg):
     log.info(f"using device: {device}")
     target_criterion = hydra.utils.instantiate(cfg.target_criterion)
     guide_criterion = hydra.utils.instantiate(cfg.guide_criterion)
-    metrics_dict = {
+    target_metrics_dict = {
         name: hydra.utils.instantiate(metric)
-        for metric_entry in cfg.metrics
+        for metric_entry in cfg.target_metrics
         for name, metric in metric_entry.items()
-    } | {"rescaled_loss": hydra.utils.instantiate(cfg.criterion)}
-    full_image_metrics_dict = {
+    } | {"rescaled_loss": hydra.utils.instantiate(cfg.target_criterion)}
+    guide_metrics_dict = {
         name: hydra.utils.instantiate(metric)
-        for metric_entry in cfg.full_image_metrics
+        for metric_entry in cfg.guide_metrics
+        for name, metric in metric_entry.items()
+    } | {"rescaled_loss": hydra.utils.instantiate(cfg.guide_criterion)}
+    full_target_metrics_dict = {
+        name: hydra.utils.instantiate(metric)
+        for metric_entry in cfg.full_target_metrics
+        for name, metric in metric_entry.items()
+    }
+    full_guide_metrics_dict = {
+        name: hydra.utils.instantiate(metric)
+        for metric_entry in cfg.full_guide_metrics
         for name, metric in metric_entry.items()
     }
     results = {
         "opencanopy_idx": list(cfg.data.opencanopy_indices),
-        "train_loss": [],
-        **{f"train_{name}": [] for name in metrics_dict},
-        "test_loss": [],
-        **{f"test_{name}": [] for name in metrics_dict},
-        **{f"full_image_{name}": [] for name in full_image_metrics_dict},
     }
-    if cfg.save_running_metrics:
-        results = results | {
-            "all_train_loss": [],
-            **{f"all_train_{name}": [] for name in metrics_dict},
-            "all_test_loss": [],
-            **{f"all_test_{name}": [] for name in metrics_dict},
-            **{f"all_full_image_{name}": [] for name in full_image_metrics_dict},
-        }
+    results = results | generate_results_dict(
+        "stage1",
+        cfg.stage1.save_running_target_metrics,
+        cfg.stage1.save_running_guide_metrics,
+        target_metrics_dict,
+        full_target_metrics_dict,
+        guide_metrics_dict,
+        full_guide_metrics_dict,
+    )
+    if cfg.stage2.fit is not None:
+        results = results | generate_results_dict(
+            "stage2",
+            cfg.stage2.save_running_target_metrics,
+            cfg.stage2.save_running_guide_metrics,
+            target_metrics_dict,
+            full_target_metrics_dict,
+            guide_metrics_dict,
+            full_guide_metrics_dict,
+        )
     for i in cfg.data.opencanopy_indices:
         log.info(f"Fitting on index {i}")
         guide, target = opencanopy[i]
@@ -123,80 +235,77 @@ def main(cfg):
             guide_criterion=guide_criterion,
             target_metrics=target_metrics_dict,
             guide_metrics=guide_metrics_dict,
-            full_target_metrics=full_image_target_metrics_dict,
-            full_guide_metrics=full_image_guide_metrics_dict,
+            full_target_metrics=full_target_metrics_dict,
+            full_guide_metrics=full_guide_metrics_dict,
             device=device,
         )
 
-        (
-            all_train_loss,
-            all_train_metrics,
-            all_test_loss,
-            all_test_metrics,
-            all_full_image_metrics,
-        ) = inr.fit(
-            cfg.epochs1,
-            return_test_metrics=cfg.save_running_metrics,
+        loss_and_metrics = inr.fit(
+            what=cfg.stage1.fit,
+            epochs=cfg.stage1.epochs,
+            return_target_train_metrics=cfg.stage1.save_running_target_metrics,
+            return_target_test_metrics=cfg.stage1.save_running_target_metrics,
+            return_guide_metrics=cfg.stage1.save_running_guide_metrics,
             full_image_metrics_interval=cfg.full_image_metrics_interval,
-            what=cfg.fit1,
             target_loss_weight=cfg.target_loss_weight,
             guide_loss_weight=cfg.guide_loss_weight,
         )
 
-        if cfg.epochs2 is not None and cfg.fit2 is not None:
-            (
-                all_train_loss,
-                all_train_metrics,
-                all_test_loss,
-                all_test_metrics,
-                all_full_image_metrics,
-            ) = inr.fit(
-                cfg.epochs2,
-                return_test_metrics=cfg.save_running_metrics,
+        (
+            final_target_train,
+            final_target_test,
+            final_guide,
+            final_full_target,
+            final_full_guide,
+        ) = inr.evaluate(True, True, True, True, None, None)
+        assert final_target_train is not None
+        assert final_target_test is not None
+        assert final_guide is not None
+        assert final_full_target is not None
+        assert final_full_guide is not None
+        final_metrics = (
+            final_target_train,
+            final_target_test,
+            final_guide,
+            final_full_target,
+            final_full_guide,
+        )
+
+        append_results(results, "stage1", *loss_and_metrics, *final_metrics)
+
+        if cfg.stage2.fit is not None:
+            loss_and_metrics = inr.fit(
+                what=cfg.stage2.fit,
+                epochs=cfg.stage2.epochs,
+                return_target_train_metrics=cfg.stage2.save_running_target_metrics,
+                return_target_test_metrics=cfg.stage2.save_running_target_metrics,
+                return_guide_metrics=cfg.stage2.save_running_guide_metrics,
                 full_image_metrics_interval=cfg.full_image_metrics_interval,
-                what=cfg.fit2,
                 target_loss_weight=cfg.target_loss_weight,
                 guide_loss_weight=cfg.guide_loss_weight,
             )
 
-        if (
-            all_test_loss is not None
-            and all_test_metrics is not None
-            and all_full_image_metrics is not None
-        ):  # no reason to re-compute if we already have the final results
-            test_loss = all_test_loss[-1]
-            test_metrics = {name: vals[-1] for name, vals in all_test_metrics.items()}
-            full_image_metrics = {
-                name: vals[-1] for name, vals in all_full_image_metrics.items()
-            }
-        else:
-            test_loss, test_metrics, full_image_metrics = inr.evaluate(
-                return_full_image_metrics=True
+            (
+                final_target_train,
+                final_target_test,
+                final_guide,
+                final_full_target,
+                final_full_guide,
+            ) = inr.evaluate(True, True, True, True, None, None)
+            assert final_target_train is not None
+            assert final_target_test is not None
+            assert final_guide is not None
+            assert final_full_target is not None
+            assert final_full_guide is not None
+            final_metrics = (
+                final_target_train,
+                final_target_test,
+                final_guide,
+                final_full_target,
+                final_full_guide,
             )
-            assert full_image_metrics is not None
 
-        results["train_loss"].append(all_train_loss[-1])
-        results["test_loss"].append(test_loss)
-        for name, vals in all_train_metrics.items():
-            results[f"train_{name}"].append(vals[-1])
-        for name, val in test_metrics.items():
-            results[f"test_{name}"].append(val)
-        for name, val in full_image_metrics.items():
-            results[f"full_image_{name}"].append(val)
-
-        if (
-            all_test_loss is not None
-            and all_test_metrics is not None
-            and all_full_image_metrics is not None
-        ):  # i.e save_running_metrics
-            results["all_train_loss"].append(all_train_loss)
-            results["all_test_loss"].append(all_test_loss)
-            for name, vals in all_train_metrics.items():
-                results[f"all_train_{name}"].append(vals)
-            for name, vals in all_test_metrics.items():
-                results[f"all_test_{name}"].append(vals)
-            for name, vals in all_full_image_metrics.items():
-                results[f"all_full_image_{name}"].append(vals)
+            append_results(results, "stage2", *loss_and_metrics, *final_metrics)
 
         if cfg.save_images:
             target_image = inr.target_image.permute((1, 2, 0))
@@ -206,9 +315,7 @@ def main(cfg):
             reconstructed_images = inr.reconstructed_images
             reconstructed_target = reconstructed_images[0].permute((1, 2, 0))
             reconstructed_guide = reconstructed_images[1].permute((1, 2, 0))
-            image_dir = os.path.join(
-                hydra.core.hydra_config.HydraConfig.get().runtime.output_dir, "images"
-            )
+            image_dir = os.path.join(HydraConfig.get().runtime.output_dir, "images")
             if not os.path.exists(image_dir):
                 os.mkdir(image_dir)
             image_filenames = {
@@ -234,3 +341,7 @@ def main(cfg):
 
 if __name__ == "__main__":
     main()
+
+# Todo:
+# Save target_loss and guide_loss
+# Update image saving to step2 code

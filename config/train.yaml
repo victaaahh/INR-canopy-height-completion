@@ -8,17 +8,24 @@ defaults:
   - optimizer@joint_optimizer: adam
   - _self_
 
-epochs1: 1000
-fit1: jointly # target, guide, jointly
+stage1:
+  fit: jointly # target, guide, jointly
+  epochs: 1000
+  save_target_images: true
+  save_guide_images: true
+  save_running_target_metrics: true
+  save_running_guide_metrics: true
 
-epochs2: null
-fit2: null
+stage2:
+  fit: null
+  epochs: 1000
+  save_target_images: true
+  save_guide_images: true
+  save_running_target_metrics: true
+  save_running_guide_metrics: true
 
 device: cuda
 seed: 8182
-
-save_images: true # only the final images
-save_running_metrics: true
 full_image_metrics_interval: 50
 
 target_loss_weight: 0.5 # loss weights are used when jointly fitting
@@ -30,7 +37,7 @@ target_criterion:
 guide_criterion:
   _target_: torch.nn.MSELoss
 
-metrics: # metrics are computed on rescaled/non-normalized output
+target_metrics: # metrics are computed on rescaled/non-normalized output
   - PSNR:
       _target_: src.utils.metrics.PSNR
       data_range: ${data.nan_above}
@@ -48,10 +55,39 @@ metrics: # metrics are computed on rescaled/non-normalized output
       k_1: 0.01
       k_2: 0.03
 
-full_image_metrics:
+full_target_metrics:
   - SSIM:
       _target_: src.utils.metrics.SSIM
       data_range: ${data.nan_above}
+      k_1: 0.01
+      k_2: 0.03
+      gaussian_kernel: true
+      sigma: 1.5
+      kernel_size: 11
+      device: ${device}
+
+guide_metrics: # metrics are computed on rescaled/non-normalized output
+  - PSNR:
+      _target_: src.utils.metrics.PSNR
+      data_range: ${data.nan_above}
+  - RMSE:
+      _target_: src.utils.metrics.RMSE
+  - MAE:
+      _target_: torch.nn.L1Loss
+  - ME:
+      _target_: src.utils.metrics.ME
+  - R2:
+      _target_: src.utils.metrics.R2
+  - full_window_SSIM:
+      _target_: src.utils.metrics.full_window_SSIM
+      data_range: 256
+      k_1: 0.01
+      k_2: 0.03
+
+full_guide_metrics:
+  - SSIM:
+      _target_: src.utils.metrics.SSIM
+      data_range: 256.0
       k_1: 0.01
       k_2: 0.03
       gaussian_kernel: true
