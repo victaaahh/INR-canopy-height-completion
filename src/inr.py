@@ -340,23 +340,23 @@ class SparseImageINR:
                     ).item()
 
             if return_target_test_metrics or return_guide_metrics:
-                if return_target_test_metrics and return_guide_metrics:
-                    to_eval = "both"
-                elif return_target_test_metrics:
-                    to_eval = "target"
-                else:
-                    to_eval = "guide"
                 return_full_image_metrics = (
                     i + 1
                 ) % full_image_metrics_interval == 0 or i == epochs - 1
 
                 (
+                    _,
                     test_metrics,
                     guide_metrics,
                     full_target_metrics,
                     full_guide_metrics,
                 ) = self.evaluate(
-                    to_eval, return_full_image_metrics, full_target_output, guide_output
+                    False,
+                    return_target_test_metrics,
+                    return_guide_metrics,
+                    return_full_image_metrics,
+                    full_target_output,
+                    guide_output,
                 )
 
                 if return_target_test_metrics:
