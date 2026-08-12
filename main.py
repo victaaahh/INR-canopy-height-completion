@@ -137,6 +137,46 @@ def append_results(
         results_dict[f"{stage}_guide_full_{name}"].append(val)
 
 
+def save_images(
+    inr: SparseImageINR,
+    stage: str,
+    opencanopy_index: int,
+    image_dir: str,
+    save_target_images: bool,
+    save_guide_images: bool,
+):
+    image_filenames: dict[str, Tensor] = {}
+    if save_target_images or save_guide_images:
+        reconstructed_images = inr.reconstructed_images
+    else:
+        reconstructed_images = None
+
+    if save_target_images:
+        target_image = inr.target_image.permute((1, 2, 0))
+        train_mask = inr.train_mask
+        test_mask = inr.test_mask
+        assert reconstructed_images is not None
+        reconstructed_target = reconstructed_images[0].permute((1, 2, 0))
+        image_filenames = image_filenames | {
+            f"{opencanopy_index}_{stage}_target_image.pt": target_image,
+            f"{opencanopy_index}_{stage}_train_mask.pt": train_mask,
+            f"{opencanopy_index}_{stage}_test_mask.pt": test_mask,
+            f"{opencanopy_index}_{stage}_reconstructed_target.pt": reconstructed_target,
+        }
+
+    if save_guide_images:
+        assert reconstructed_images is not None
+        reconstructed_guide = reconstructed_images[1].permute((1, 2, 0))
+        guide_image = inr.guide_image.permute((1, 2, 0))
+        image_filenames = image_filenames | {
+            f"{opencanopy_index}_{stage}_guide_image.pt": guide_image,
+            f"{opencanopy_index}_{stage}_reconstructed_guide.pt": reconstructed_guide,
+        }
+
+    for name, img in image_filenames.items():
+        torch.save(img, os.path.join(image_dir, name))
+
+
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg: DictConfig) -> float:
     seed = cfg.seed
@@ -149,6 +189,11 @@ def main(cfg: DictConfig) -> float:
     log.info(f"using device: {device}")
     target_criterion = hydra.utils.instantiate(cfg.target_criterion)
     guide_criterion = hydra.utils.instantiate(cfg.guide_criterion)
+
+    image_dir = os.path.join(HydraConfig.get().runtime.output_dir, "images")
+    if not os.path.exists(image_dir):
+        os.mkdir(image_dir)
+
     target_metrics_dict = {
         name: hydra.utils.instantiate(metric)
         for metric_entry in cfg.target_metrics
@@ -273,6 +318,15 @@ def main(cfg: DictConfig) -> float:
 
         append_results(results, "stage1", *loss_and_metrics, *final_metrics)
 
+        save_images(
+            inr,
+            "stage1",
+            i,
+            image_dir,
+            cfg.stage1.save_target_images,
+            cfg.stage1.save_guide_images,
+        )
+
         if cfg.stage2.fit is not None:
             loss_and_metrics = inr.fit(
                 what=cfg.stage2.fit,
@@ -307,27 +361,14 @@ def main(cfg: DictConfig) -> float:
 
             append_results(results, "stage2", *loss_and_metrics, *final_metrics)
 
-        if cfg.save_images:
-            target_image = inr.target_image.permute((1, 2, 0))
-            guide_image = inr.guide_image.permute((1, 2, 0))
-            train_mask = inr.train_mask
-            test_mask = inr.test_mask
-            reconstructed_images = inr.reconstructed_images
-            reconstructed_target = reconstructed_images[0].permute((1, 2, 0))
-            reconstructed_guide = reconstructed_images[1].permute((1, 2, 0))
-            image_dir = os.path.join(HydraConfig.get().runtime.output_dir, "images")
-            if not os.path.exists(image_dir):
-                os.mkdir(image_dir)
-            image_filenames = {
-                f"{i}_target_image.pt": target_image,
-                f"{i}_guide_image.pt": guide_image,
-                f"{i}_train_mask.pt": train_mask,
-                f"{i}_test_mask.pt": test_mask,
-                f"{i}_reconstructed_target.pt": reconstructed_target,
-                f"{i}_reconstructed_guide.pt": reconstructed_guide,
-            }
-            for name, img in image_filenames.items():
-                torch.save(img, os.path.join(image_dir, name))
+            save_images(
+                inr,
+                "stage2",
+                i,
+                image_dir,
+                cfg.stage2.save_target_images,
+                cfg.stage2.save_guide_images,
+            )
 
     table = pd.DataFrame(results)
     table.to_pickle(
