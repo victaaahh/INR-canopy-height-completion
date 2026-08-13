@@ -195,7 +195,7 @@ def save_images(
 
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
-def main(cfg: DictConfig) -> float:
+def main(cfg: DictConfig):
     seed = cfg.seed
     _ = torch.manual_seed(seed)
     opencanopy = OpenCanopy(
@@ -396,7 +396,6 @@ def main(cfg: DictConfig) -> float:
             "results.pickle",
         )
     )
-    return table["test_rescaled_loss"].mean()  # return value used by optuna
 
 
 if __name__ == "__main__":
