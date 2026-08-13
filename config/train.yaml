@@ -49,11 +49,6 @@ target_metrics: # metrics are computed on rescaled/non-normalized output
       _target_: src.utils.metrics.ME
   - R2:
       _target_: src.utils.metrics.R2
-  - full_window_SSIM:
-      _target_: src.utils.metrics.full_window_SSIM
-      data_range: ${data.nan_above}
-      k_1: 0.01
-      k_2: 0.03
 
 full_target_metrics:
   - SSIM:
@@ -78,11 +73,6 @@ guide_metrics: # metrics are computed on rescaled/non-normalized output
       _target_: src.utils.metrics.ME
   - R2:
       _target_: src.utils.metrics.R2
-  - full_window_SSIM:
-      _target_: src.utils.metrics.full_window_SSIM
-      data_range: 256
-      k_1: 0.01
-      k_2: 0.03
 
 full_guide_metrics:
   - SSIM:
