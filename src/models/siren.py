@@ -8,8 +8,6 @@ import torch.nn as nn
 from torch import Tensor
 from typing_extensions import override
 
-from src.models.base_inr import INR
-
 
 class SineLayer(nn.Module):
     # See paper sec. 3.2, final paragraph, and supplement Sec. 1.5 for discussion of omega_0.
@@ -55,7 +53,7 @@ class SineLayer(nn.Module):
         return torch.sin(self.omega_0 * self.linear(input))
 
 
-class Siren(INR):
+class Siren(nn.Module):
     def __init__(
         self,
         in_features: int,
