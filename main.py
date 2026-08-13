@@ -48,6 +48,7 @@ def generate_results_dict(
     stage: str,
     save_running_target_metrics: bool,
     save_running_guide_metrics: bool,
+    training_jointly: bool,
     target_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
     full_target_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
     guide_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
@@ -77,6 +78,14 @@ def generate_results_dict(
             **{
                 f"{stage}_all_guide_full_{name}": [] for name in full_guide_metrics_dict
             },
+        }
+
+    if training_jointly:
+        results = results | {
+            f"{stage}_target_loss": [],
+            f"{stage}_all_target_loss": [],
+            f"{stage}_guide_loss": [],
+            f"{stage}_all_guide_loss": [],
         }
 
     return results
@@ -135,6 +144,14 @@ def append_results(
 
     for name, val in final_full_guide_metrics.items():
         results_dict[f"{stage}_guide_full_{name}"].append(val)
+
+    if all_target_loss is not None:
+        results_dict[f"{stage}_target_loss"].append(all_target_loss[-1].item())
+        results_dict[f"{stage}_all_target_loss"].append(all_target_loss)
+
+    if all_guide_loss is not None:
+        results_dict[f"{stage}_guide_loss"].append(all_guide_loss[-1].item())
+        results_dict[f"{stage}_all_guide_loss"].append(all_guide_loss)
 
 
 def save_images(
@@ -221,6 +238,7 @@ def main(cfg: DictConfig) -> float:
         "stage1",
         cfg.stage1.save_running_target_metrics,
         cfg.stage1.save_running_guide_metrics,
+        cfg.stage1.fit == "jointly",
         target_metrics_dict,
         full_target_metrics_dict,
         guide_metrics_dict,
@@ -231,6 +249,7 @@ def main(cfg: DictConfig) -> float:
             "stage2",
             cfg.stage2.save_running_target_metrics,
             cfg.stage2.save_running_guide_metrics,
+            cfg.stage2.fit == "jointly",
             target_metrics_dict,
             full_target_metrics_dict,
             guide_metrics_dict,
@@ -382,7 +401,3 @@ def main(cfg: DictConfig) -> float:
 
 if __name__ == "__main__":
     main()
-
-# Todo:
-# Save target_loss and guide_loss
-# Update image saving to step2 code
