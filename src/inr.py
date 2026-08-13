@@ -3,12 +3,11 @@ from collections.abc import Callable
 from typing import Literal
 
 import torch
-from torch import Tensor, device
+from torch import Tensor, device, nn
 from torch.optim import Optimizer
 from tqdm import tqdm
 
 from src.data import single_image_dataset, single_image_sparse_dataset
-from src.models.base_inr import INR
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ class SparseImageINR:
         guide_normalization_scale: float,
         sparsity: float,
         test_grid_skip: int,
-        model: INR,
+        model: nn.Module,
         target_optimizer: Optimizer,
         guide_optimizer: Optimizer,
         joint_optimizer: Optimizer,
