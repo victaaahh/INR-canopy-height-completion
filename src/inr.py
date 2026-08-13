@@ -182,11 +182,13 @@ class SparseImageINR:
 
     @property
     def reconstructed_images(self) -> tuple[Tensor, Tensor]:
+        recon_target, recon_guide = self._rescaled_reconstructed_images
+        recon_target = recon_target.detach().cpu()
+        recon_guide = recon_guide.detach().cpu()
         if self.channel_dim == 0:
-            recon_target, recon_guide = self._rescaled_reconstructed_images
             return recon_target.permute(2, 0, 1), recon_guide.permute(2, 0, 1)
         else:
-            return self._rescaled_reconstructed_images
+            return recon_target, recon_guide
 
     def _fit_target_one_step(
         self, return_full_target_and_guide: bool
