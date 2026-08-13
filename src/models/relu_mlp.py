@@ -1,10 +1,8 @@
 from torch import Tensor, nn
 from typing_extensions import override
 
-from src.models.base_inr import INR
 
-
-class ReLUMLP(INR):
+class ReLUMLP(nn.Module):
     def __init__(
         self,
         in_features: int,
