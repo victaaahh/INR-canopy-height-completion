@@ -50,9 +50,7 @@ def create_optimizer(cfg: DictConfig, model: torch.nn.Module) -> torch.optim.Opt
 
 def generate_results_dict(
     stage: str,
-    save_running_target_metrics: bool,
-    save_running_guide_metrics: bool,
-    training_jointly: bool,
+    cfg: DictConfig,
     target_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
     full_target_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
     guide_metrics_dict: dict[str, Callable[[Tensor], Tensor]],
@@ -67,7 +65,7 @@ def generate_results_dict(
         **{f"{stage}_guide_{name}": [] for name in guide_metrics_dict},
         **{f"{stage}_guide_full_{name}": [] for name in full_guide_metrics_dict},
     }
-    if save_running_target_metrics:
+    if cfg.save_running_target_metrics:
         results = results | {
             **{f"{stage}_all_target_train_{name}": [] for name in target_metrics_dict},
             **{f"{stage}_all_target_test_{name}": [] for name in target_metrics_dict},
@@ -76,7 +74,7 @@ def generate_results_dict(
                 for name in full_target_metrics_dict
             },
         }
-    if save_running_guide_metrics:
+    if cfg.save_running_guide_metrics:
         results = results | {
             **{f"{stage}_all_guide_{name}": [] for name in guide_metrics_dict},
             **{
@@ -84,7 +82,7 @@ def generate_results_dict(
             },
         }
 
-    if training_jointly:
+    if cfg.training_jointly:
         results = results | {
             f"{stage}_target_loss": [],
             f"{stage}_all_target_loss": [],
@@ -161,18 +159,17 @@ def append_results(
 def save_images(
     inr: SparseImageINR,
     stage: str,
+    cfg: DictConfig,
     opencanopy_index: int,
     image_dir: str,
-    save_target_images: bool,
-    save_guide_images: bool,
 ):
     image_filenames: dict[str, Tensor] = {}
-    if save_target_images or save_guide_images:
+    if cfg.save_target_images or cfg.save_guide_images:
         reconstructed_images = inr.reconstructed_images
     else:
         reconstructed_images = None
 
-    if save_target_images:
+    if cfg.save_target_images:
         target_image = inr.target_image.permute((1, 2, 0))
         train_mask = inr.train_mask
         test_mask = inr.test_mask
@@ -185,7 +182,7 @@ def save_images(
             f"{opencanopy_index}_{stage}_reconstructed_target.pt": reconstructed_target,
         }
 
-    if save_guide_images:
+    if cfg.save_guide_images:
         assert reconstructed_images is not None
         reconstructed_guide = reconstructed_images[1].permute((1, 2, 0))
         guide_image = inr.guide_image.permute((1, 2, 0))
@@ -240,9 +237,7 @@ def main(cfg: DictConfig):
     }
     results = results | generate_results_dict(
         "stage1",
-        cfg.stage1.save_running_target_metrics,
-        cfg.stage1.save_running_guide_metrics,
-        cfg.stage1.fit == "jointly",
+        cfg.stage1,
         target_metrics_dict,
         full_target_metrics_dict,
         guide_metrics_dict,
@@ -251,9 +246,7 @@ def main(cfg: DictConfig):
     if cfg.stage2.fit is not None:
         results = results | generate_results_dict(
             "stage2",
-            cfg.stage2.save_running_target_metrics,
-            cfg.stage2.save_running_guide_metrics,
-            cfg.stage2.fit == "jointly",
+            cfg.stage2,
             target_metrics_dict,
             full_target_metrics_dict,
             guide_metrics_dict,
@@ -344,10 +337,9 @@ def main(cfg: DictConfig):
         save_images(
             inr,
             "stage1",
+            cfg.stage1,
             i,
             image_dir,
-            cfg.stage1.save_target_images,
-            cfg.stage1.save_guide_images,
         )
 
         if cfg.stage2.fit is not None:
@@ -387,10 +379,9 @@ def main(cfg: DictConfig):
             save_images(
                 inr,
                 "stage2",
+                cfg.stage2,
                 i,
                 image_dir,
-                cfg.stage2.save_target_images,
-                cfg.stage2.save_guide_images,
             )
 
     table = pd.DataFrame(results)
