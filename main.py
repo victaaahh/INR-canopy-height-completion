@@ -235,14 +235,15 @@ def main(cfg: DictConfig):
     results = {
         "opencanopy_idx": list(cfg.data.opencanopy_indices),
     }
-    results = results | generate_results_dict(
-        "stage1",
-        cfg.stage1,
-        target_metrics_dict,
-        full_target_metrics_dict,
-        guide_metrics_dict,
-        full_guide_metrics_dict,
-    )
+    if cfg.stage1.fit is not None:
+        results = results | generate_results_dict(
+            "stage1",
+            cfg.stage1,
+            target_metrics_dict,
+            full_target_metrics_dict,
+            guide_metrics_dict,
+            full_guide_metrics_dict,
+        )
     if cfg.stage2.fit is not None:
         results = results | generate_results_dict(
             "stage2",
@@ -312,35 +313,36 @@ def main(cfg: DictConfig):
             guide_loss_weight=cfg.guide_loss_weight,
         )
 
-        (
-            final_target_train,
-            final_target_test,
-            final_guide,
-            final_full_target,
-            final_full_guide,
-        ) = inr.evaluate(True, True, True, True, None, None)
-        assert final_target_train is not None
-        assert final_target_test is not None
-        assert final_guide is not None
-        assert final_full_target is not None
-        assert final_full_guide is not None
-        final_metrics = (
-            final_target_train,
-            final_target_test,
-            final_guide,
-            final_full_target,
-            final_full_guide,
-        )
+        if cfg.stage1.fit is not None:
+            (
+                final_target_train,
+                final_target_test,
+                final_guide,
+                final_full_target,
+                final_full_guide,
+            ) = inr.evaluate(True, True, True, True, None, None)
+            assert final_target_train is not None
+            assert final_target_test is not None
+            assert final_guide is not None
+            assert final_full_target is not None
+            assert final_full_guide is not None
+            final_metrics = (
+                final_target_train,
+                final_target_test,
+                final_guide,
+                final_full_target,
+                final_full_guide,
+            )
 
-        append_results(results, "stage1", *loss_and_metrics, *final_metrics)
+            append_results(results, "stage1", *loss_and_metrics, *final_metrics)
 
-        save_images(
-            inr,
-            "stage1",
-            cfg.stage1,
-            i,
-            image_dir,
-        )
+            save_images(
+                inr,
+                "stage1",
+                cfg.stage1,
+                i,
+                image_dir,
+            )
 
         if cfg.stage2.fit is not None:
             loss_and_metrics = inr.fit(

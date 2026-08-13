@@ -9,7 +9,7 @@ defaults:
   - _self_
 
 stage1:
-  fit: jointly # target, guide, jointly
+  fit: null
   epochs: 1000
   save_target_images: true
   save_guide_images: true
@@ -17,7 +17,7 @@ stage1:
   save_running_guide_metrics: true
 
 stage2:
-  fit: null
+  fit: jointly # target, guide, jointly
   epochs: 1000
   save_target_images: true
   save_guide_images: true
