@@ -104,8 +104,8 @@ class SparseImageINR:
         ) or guide_normalization_scale.shape != (self._guide_channels,):
             raise ValueError("a scale and shift should be provided for each channel")
 
-        self._guide_shift = guide_normalization_shift
-        self._guide_scale = guide_normalization_scale
+        self._guide_shift = guide_normalization_shift.to(device)
+        self._guide_scale = guide_normalization_scale.to(device)
 
         self._guide_image = (self._guide_image - self._guide_shift) / self._guide_scale
         self.guide_dataset = single_image_dataset(
@@ -123,9 +123,9 @@ class SparseImageINR:
             self.test_pixels * self._target_scale + self._target_shift
         )
         self.guide_coords, self.guide_pixels = self.guide_dataset.tensors
-        self.rescaled_guide_pixels = self.guide_pixels * self._guide_scale.to(
-            device
-        ) + self._guide_shift.to(device)
+        self.rescaled_guide_pixels = (
+            self.guide_pixels * self._guide_scale + self._guide_shift
+        )
 
         # Other parameters
         self.channel_dim = channel_dim
