@@ -107,7 +107,9 @@ class SparseImageINR:
         self._guide_shift = guide_normalization_shift.to(device)
         self._guide_scale = guide_normalization_scale.to(device)
 
-        self._guide_image = (self._guide_image - self._guide_shift) / self._guide_scale
+        self._guide_image = (
+            self._guide_image - self._guide_shift.cpu()
+        ) / self._guide_scale.cpu()
         self.guide_dataset = single_image_dataset(
             self._guide_image,
             channel_dim=2,
@@ -157,7 +159,7 @@ class SparseImageINR:
 
     @property
     def _rescaled_guide_image(self) -> Tensor:
-        return self._guide_image * self._guide_scale + self._guide_shift
+        return self._guide_image * self._guide_scale.cpu() + self._guide_shift.cpu()
 
     @property
     def guide_image(self) -> Tensor:
