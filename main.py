@@ -302,18 +302,18 @@ def main(cfg: DictConfig):
             device=device,
         )
 
-        loss_and_metrics = inr.fit(
-            what=cfg.stage1.fit,
-            epochs=cfg.stage1.epochs,
-            return_target_train_metrics=cfg.stage1.save_running_target_metrics,
-            return_target_test_metrics=cfg.stage1.save_running_target_metrics,
-            return_guide_metrics=cfg.stage1.save_running_guide_metrics,
-            full_image_metrics_interval=cfg.full_image_metrics_interval,
-            target_loss_weight=cfg.target_loss_weight,
-            guide_loss_weight=cfg.guide_loss_weight,
-        )
-
         if cfg.stage1.fit is not None:
+            loss_and_metrics = inr.fit(
+                what=cfg.stage1.fit,
+                epochs=cfg.stage1.epochs,
+                return_target_train_metrics=cfg.stage1.save_running_target_metrics,
+                return_target_test_metrics=cfg.stage1.save_running_target_metrics,
+                return_guide_metrics=cfg.stage1.save_running_guide_metrics,
+                full_image_metrics_interval=cfg.full_image_metrics_interval,
+                target_loss_weight=cfg.target_loss_weight,
+                guide_loss_weight=cfg.guide_loss_weight,
+            )
+
             (
                 final_target_train,
                 final_target_test,
