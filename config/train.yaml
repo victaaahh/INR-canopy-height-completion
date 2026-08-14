@@ -92,8 +92,8 @@ data:
   sparsity: 0.5
   target_normalization_shift: 60.57
   target_normalization_scale: 85.86
-  guide_normalization_shift: 0.0
-  guide_normalization_scale: 256.0
+  guide_normalization_shift: [33.68, 40.58, 36.66, 108.34]
+  guide_normalization_scale: [26.58, 23.28, 19.08, 32.17]
   nan_above: 600
   full_image_metrics_fill_na: 0.0
   zero_ratio_cutoff: 0.99

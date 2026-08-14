@@ -23,8 +23,8 @@ class SparseImageINR:
         | Literal["individual_min_max", "individual_std"],
         target_normalization_scale: float
         | Literal["individual_min_max", "individual_std"],
-        guide_normalization_shift: float,
-        guide_normalization_scale: float,
+        guide_normalization_shift: Tensor,
+        guide_normalization_scale: Tensor,
         sparsity: float,
         test_grid_skip: int,
         model: nn.Module,
@@ -90,7 +90,6 @@ class SparseImageINR:
         )
 
         # Guide image handling
-
         if channel_dim == 0:
             self._guide_image = guide_image.permute(1, 2, 0)
         else:
@@ -99,6 +98,11 @@ class SparseImageINR:
             "guide image should have same height and width as target image"
         )
         self._guide_channels = self._guide_image.shape[2]
+
+        if guide_normalization_shift.shape != (
+            self._guide_channels,
+        ) or guide_normalization_scale.shape != (self._guide_channels,):
+            raise ValueError("a scale and shift should be provided for each channel")
 
         self._guide_shift = guide_normalization_shift
         self._guide_scale = guide_normalization_scale
