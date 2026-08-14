@@ -59,23 +59,25 @@ class SparseImageINR:
             target_normalization_scale == "individual_min_max"
             and target_normalization_shift == "individual_min_max"
         ):
-            self._shift = non_nan_values.min()
-            self._scale = max(
-                non_nan_values.max() - self._shift, 0.1
+            self._target_shift = non_nan_values.min()
+            self._target_scale = max(
+                non_nan_values.max() - self._target_shift, 0.1
             )  # avoid division by zero
         elif (
             target_normalization_scale == "individual_std"
             and target_normalization_shift == "individual_std"
         ):
-            self._shift = non_nan_values.mean()
-            self._scale = max(non_nan_values.std(), 0.1)
+            self._target_shift = non_nan_values.mean()
+            self._target_scale = max(non_nan_values.std(), 0.1)
         else:
             assert isinstance(target_normalization_shift, float)
             assert isinstance(target_normalization_scale, float)
-            self._shift = target_normalization_shift
-            self._scale = target_normalization_scale
+            self._target_shift = target_normalization_shift
+            self._target_scale = target_normalization_scale
 
-        self._target_image = (self._target_image - self._shift) / self._scale
+        self._target_image = (
+            self._target_image - self._target_shift
+        ) / self._target_scale
 
         self.train_dataset, self.test_dataset, self.train_mask, self.test_mask = (
             single_image_sparse_dataset(
@@ -88,8 +90,6 @@ class SparseImageINR:
         )
 
         # Guide image handling
-        self._guide_shift = guide_normalization_shift
-        self._guide_scale = guide_normalization_scale
 
         if channel_dim == 0:
             self._guide_image = guide_image.permute(1, 2, 0)
@@ -99,6 +99,10 @@ class SparseImageINR:
             "guide image should have same height and width as target image"
         )
         self._guide_channels = self._guide_image.shape[2]
+
+        self._guide_shift = guide_normalization_shift
+        self._guide_scale = guide_normalization_scale
+
         self._guide_image = (self._guide_image - self._guide_shift) / self._guide_scale
         self.guide_dataset = single_image_dataset(
             self._guide_image,
@@ -108,8 +112,12 @@ class SparseImageINR:
 
         self.train_coords, self.train_pixels = self.train_dataset.tensors
         self.test_coords, self.test_pixels = self.test_dataset.tensors
-        self.rescaled_train_pixels = self.train_pixels * self._scale + self._shift
-        self.rescaled_test_pixels = self.test_pixels * self._scale + self._shift
+        self.rescaled_train_pixels = (
+            self.train_pixels * self._target_scale + self._target_shift
+        )
+        self.rescaled_test_pixels = (
+            self.test_pixels * self._target_scale + self._target_shift
+        )
         self.guide_coords, self.guide_pixels = self.guide_dataset.tensors
         self.rescaled_guide_pixels = (
             self.guide_pixels * self._guide_scale + self._guide_shift
@@ -134,7 +142,7 @@ class SparseImageINR:
 
     @property
     def _rescaled_target_image(self) -> Tensor:
-        return self._target_image * self._scale + self._shift
+        return self._target_image * self._target_scale + self._target_shift
 
     @property
     def target_image(self) -> Tensor:
@@ -168,8 +176,8 @@ class SparseImageINR:
             reconstructed_target.reshape(
                 self._target_width, self._target_width, self._target_channels
             )
-            * self._scale
-            + self._shift
+            * self._target_scale
+            + self._target_shift
         )
         reconstructed_guide = (
             reconstructed_guide.reshape(
@@ -334,7 +342,9 @@ class SparseImageINR:
 
             if return_target_train_metrics:
                 assert all_train_metrics is not None
-                rescaled_target_output = target_output * self._scale + self._shift
+                rescaled_target_output = (
+                    target_output * self._target_scale + self._target_shift
+                )
                 for name, metric in self.target_metrics.items():
                     all_train_metrics[name][i] = metric(
                         rescaled_target_output, self.rescaled_train_pixels
@@ -427,19 +437,21 @@ class SparseImageINR:
 
         with torch.no_grad():
             if full_target_output is not None and guide_output is not None:
-                rescaled_guide_output = guide_output * self._scale + self._shift
+                rescaled_guide_output = (
+                    guide_output * self._guide_scale + self._guide_shift
+                )
                 target_test_output = full_target_output[self.test_mask.flatten()]
                 target_train_output = full_target_output[self.train_mask.flatten()]
                 rescaled_target_train_output = (
-                    target_train_output * self._scale + self._shift
+                    target_train_output * self._target_scale + self._target_shift
                 )
                 rescaled_target_test_output = (
-                    target_test_output * self._scale + self._shift
+                    target_test_output * self._target_scale + self._target_shift
                 )
             elif target_train and not target_test and not guide:
                 target_train_output, _ = self.model(self.train_coords)
                 rescaled_target_train_output = (
-                    target_train_output * self._scale + self._shift
+                    target_train_output * self._target_scale + self._target_shift
                 )
                 rescaled_target_test_output = None
                 rescaled_guide_output = None
@@ -451,7 +463,7 @@ class SparseImageINR:
             ):
                 target_test_output, _ = self.model(self.test_coords)
                 rescaled_target_test_output = (
-                    target_test_output * self._scale + self._shift
+                    target_test_output * self._target_scale + self._target_shift
                 )
                 rescaled_target_train_output = None
                 rescaled_guide_output = None
@@ -459,14 +471,16 @@ class SparseImageINR:
                 full_target_output, guide_output = self.model(self.guide_coords)
                 assert full_target_output is not None
                 assert guide_output is not None
-                rescaled_guide_output = guide_output * self._scale + self._shift
+                rescaled_guide_output = (
+                    guide_output * self._guide_scale + self._guide_shift
+                )
                 target_test_output = full_target_output[self.test_mask.flatten()]
                 target_train_output = full_target_output[self.train_mask.flatten()]
                 rescaled_target_train_output = (
-                    target_train_output * self._scale + self._shift
+                    target_train_output * self._target_scale + self._target_shift
                 )
                 rescaled_target_test_output = (
-                    target_test_output * self._scale + self._shift
+                    target_test_output * self._target_scale + self._target_shift
                 )
 
             if target_train:
@@ -500,7 +514,7 @@ class SparseImageINR:
                 assert rescaled_guide_output is not None
                 assert full_target_output is not None
                 rescaled_full_target_output = (
-                    full_target_output * self._scale + self._shift
+                    full_target_output * self._target_scale + self._target_shift
                 )
                 target_image = self._rescaled_target_image.clone().to(self.device)
                 nan_inds = torch.where(target_image.isnan())
