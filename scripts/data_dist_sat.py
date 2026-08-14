@@ -39,18 +39,18 @@ for i, idx in enumerate(sample):
     if i % 500 == 0:
         log.info(f"Index: {i}")
 
-    _, target = opencanopy[idx]
-    target = centercrop(target)
+    sat, _ = opencanopy[idx]
+    sat = centercrop(sat)
 
-    hist, bin_edges = np.histogram(target, range=(0.0, float(n_bins)), bins=n_bins)
+    hist, bin_edges = np.histogram(sat, range=(0.0, float(n_bins)), bins=n_bins)
 
     all_hist[i] = hist
 
-    max_vals[i] = target.max()
-    min_vals[i] = target.min()
-    median_vals[i] = target.median()
-    means[i] = torch.mean(target).item()
-    mean_squares[i] = torch.mean(target * target).item()
+    max_vals[i] = sat.max()
+    min_vals[i] = sat.min()
+    median_vals[i] = sat.median()
+    means[i] = torch.mean(sat).item()
+    mean_squares[i] = torch.mean(sat * sat).item()
 
 if not os.path.exists("data_dist_results"):
     os.mkdir("data_dist_results")
