@@ -167,13 +167,12 @@ def save_images(
     if cfg.save_target_images or cfg.save_guide_images:
         reconstructed_images = inr.reconstructed_images
     else:
-        reconstructed_images = None
+        return
 
     if cfg.save_target_images:
         target_image = inr.target_image.permute((1, 2, 0))
         train_mask = inr.train_mask
         test_mask = inr.test_mask
-        assert reconstructed_images is not None
         reconstructed_target = reconstructed_images[0].permute((1, 2, 0))
         image_filenames = image_filenames | {
             f"{opencanopy_index}_{stage}_target_image.pt": target_image,
@@ -183,7 +182,6 @@ def save_images(
         }
 
     if cfg.save_guide_images:
-        assert reconstructed_images is not None
         reconstructed_guide = reconstructed_images[1].permute((1, 2, 0))
         guide_image = inr.guide_image.permute((1, 2, 0))
         image_filenames = image_filenames | {
