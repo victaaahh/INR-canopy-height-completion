@@ -82,7 +82,7 @@ def generate_results_dict(
             },
         }
 
-    if cfg.training_jointly:
+    if cfg.fit == "jointly":
         results = results | {
             f"{stage}_target_loss": [],
             f"{stage}_all_target_loss": [],
