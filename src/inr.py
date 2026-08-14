@@ -40,17 +40,16 @@ class SparseImageINR:
         device: device,
     ):
         # Target image handling
-        assert len(target_image.shape) == 3, (
-            "image should have channel, width and height dims"
-        )
-        assert channel_dim in [0, 2], "invalid channel_dim"
+        if len(target_image.shape) != 3:
+            raise ValueError("image should have channel, width and height dims")
+        if channel_dim not in [0, 2]:
+            raise ValueError("invalid channel_dim")
         if channel_dim == 0:
             self._target_image = target_image.permute(1, 2, 0)
         else:
             self._target_image = target_image
-        assert self._target_image.shape[0] == self._target_image.shape[1], (
-            "target image should be a square"
-        )
+        if self._target_image.shape[0] != self._target_image.shape[1]:
+            raise ValueError("target image should be a square")
         self._target_channels = self._target_image.shape[2]
         self._target_width = self._target_image.shape[1]
 
@@ -94,9 +93,10 @@ class SparseImageINR:
             self._guide_image = guide_image.permute(1, 2, 0)
         else:
             self._guide_image = guide_image
-        assert self._guide_image.shape[0:2] == self._target_image.shape[0:2], (
-            "guide image should have same height and width as target image"
-        )
+        if self._guide_image.shape[0:2] != self._target_image.shape[0:2]:
+            raise ValueError(
+                "guide image should have same height and width as target image"
+            )
         self._guide_channels = self._guide_image.shape[2]
 
         if guide_normalization_shift.shape != (
