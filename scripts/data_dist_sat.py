@@ -27,13 +27,13 @@ centercrop = CenterCrop(512)
 
 n_bins = 256
 
-all_hist = np.zeros((len(sample), n_bins))
+all_hist = np.zeros((len(sample), 4, n_bins))
 
-max_vals = np.zeros(len(sample))
-min_vals = np.zeros(len(sample))
-median_vals = np.zeros(len(sample))
-means = np.zeros(len(sample))
-mean_squares = np.zeros(len(sample))
+max_vals = np.zeros((len(sample), 4))
+min_vals = np.zeros((len(sample), 4))
+median_vals = np.zeros((len(sample), 4))
+means = np.zeros((len(sample), 4))
+mean_squares = np.zeros((len(sample), 4))
 
 for i, idx in enumerate(sample):
     if i % 500 == 0:
@@ -42,15 +42,16 @@ for i, idx in enumerate(sample):
     sat, _ = opencanopy[idx]
     sat = centercrop(sat)
 
-    hist, bin_edges = np.histogram(sat, range=(0.0, float(n_bins)), bins=n_bins)
+    for j, channel in enumerate(sat):
+        hist, bin_edges = np.histogram(channel, range=(0.0, float(n_bins)), bins=n_bins)
 
-    all_hist[i] = hist
+        all_hist[i, j] = hist
 
-    max_vals[i] = sat.max()
-    min_vals[i] = sat.min()
-    median_vals[i] = sat.median()
-    means[i] = torch.mean(sat).item()
-    mean_squares[i] = torch.mean(sat * sat).item()
+        max_vals[i, j] = channel.max()
+        min_vals[i, j] = channel.min()
+        median_vals[i, j] = channel.median()
+        means[i, j] = torch.mean(channel).item()
+        mean_squares[i, j] = torch.mean(channel * channel).item()
 
 if not os.path.exists("data_dist_results"):
     os.mkdir("data_dist_results")
