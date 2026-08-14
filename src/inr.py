@@ -123,9 +123,9 @@ class SparseImageINR:
             self.test_pixels * self._target_scale + self._target_shift
         )
         self.guide_coords, self.guide_pixels = self.guide_dataset.tensors
-        self.rescaled_guide_pixels = (
-            self.guide_pixels * self._guide_scale + self._guide_shift
-        )
+        self.rescaled_guide_pixels = self.guide_pixels * self._guide_scale.to(
+            device
+        ) + self._guide_shift.to(device)
 
         # Other parameters
         self.channel_dim = channel_dim
