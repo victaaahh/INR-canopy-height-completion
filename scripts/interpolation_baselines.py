@@ -2,6 +2,9 @@ import sys
 
 sys.path.append("..")
 
+import logging
+import os
+
 import pandas as pd
 import torch
 from scipy.interpolate import (
@@ -13,6 +16,12 @@ from torchvision.transforms.v2 import CenterCrop
 
 from src.data import OpenCanopy, single_image_sparse_dataset
 from src.utils.metrics import ME, R2, RMSE, SSIM
+
+logging.basicConfig(level=logging.INFO)
+
+log = logging.getLogger(__name__)
+
+log.info(f"Starting...")
 
 _ = torch.manual_seed(8182)
 
@@ -163,6 +172,7 @@ results: dict[str, list[int | float | str | torch.Tensor]] = {
 }
 
 for i in opencanopy_indices:
+    log.info(f"Index: {i}")
     _, target = opencanopy[i]
     target = centercrop(target)
     target = target.permute(1, 2, 0)
@@ -221,6 +231,8 @@ for i in opencanopy_indices:
 
 
 table = pd.DataFrame(results)
+if not os.path.exists("results"):
+    os.mkdir("results")
 table.to_pickle(
     "results/interpolation_baselines_results.pickle",
 )
