@@ -161,7 +161,7 @@ interpolation_methods = {
 }
 
 results: dict[str, list[int | float | str | torch.Tensor]] = {
-    "opencanopy_idx": list(opencanopy_indices),
+    "opencanopy_idx": [],
     "method": [],
     "data.sparsity": [],
     "target_test_RMSE": [],
@@ -184,7 +184,7 @@ for i in opencanopy_indices:
                 target,
                 channel_dim=2,
                 test_grid_skip=2,
-                sparsity=sparsity,  # do it for all sparsity levels!!!
+                sparsity=sparsity,
             )
         )
 
@@ -192,6 +192,7 @@ for i in opencanopy_indices:
         test_points, test_values = test_dataset.tensors
 
         for name, class_ in interpolation_methods.items():
+            results["opencanopy_idx"].append(i)
             results["method"].append(name)
             results["data.sparsity"].append(sparsity)
             interp = class_(train_points, train_values)
