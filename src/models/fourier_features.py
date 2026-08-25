@@ -27,16 +27,20 @@ class RandomFourierFeatures(nn.Module):
         for _ in range(hidden_layers - 1):
             layers.append(nn.Linear(hidden_features, hidden_features))
             layers.append(nn.ReLU())
-        self.middle_layers = nn.Sequential(*layers)
+        self.middle_layer = nn.Sequential(*layers)
 
         self.last_layer = nn.Linear(hidden_features, out_features)
 
         self.guide_head = nn.Linear(hidden_features, guide_out_features)
+
+        self.first_layers = [self.first_layer]
+        self.middle_layers = [self.middle_layer]
+        self.last_layers = [self.last_layer, self.guide_head]
 
     @override
     def forward(self, coords: Tensor) -> tuple[Tensor, Tensor]:
         x = 2 * torch.pi * coords @ self.B
         x = torch.hstack((torch.cos(x), torch.sin(x)))
         x = self.first_layer(x)
-        x = self.middle_layers(x)
+        x = self.middle_layer(x)
         return self.last_layer(x), self.guide_head(x)

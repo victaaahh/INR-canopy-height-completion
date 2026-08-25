@@ -21,16 +21,21 @@ def create_optimizer(cfg: DictConfig, model: torch.nn.Module) -> torch.optim.Opt
     if "_target_" in cfg:
         optimizer = hydra.utils.instantiate(cfg)(model.parameters())
     elif "muon" in cfg:
-        assert isinstance(model.middle_layers, torch.nn.Module)
-        assert isinstance(model.first_layer, torch.nn.Module)
-        assert isinstance(model.last_layer, torch.nn.Module)
-        assert isinstance(model.guide_head, torch.nn.Module)
-        middle_weights = [p for p in model.middle_layers.parameters() if p.ndim >= 2]
-        middle_biases = [p for p in model.middle_layers.parameters() if p.ndim < 2]
+        assert isinstance(model.middle_layers, list)
+        assert isinstance(model.first_layers, list)
+        assert isinstance(model.last_layers, list)
+        middle_weights = [
+            p
+            for layer in model.middle_layers
+            for p in layer.parameters()
+            if p.ndim >= 2
+        ]
+        middle_biases = [
+            p for layer in model.middle_layers for p in layer.parameters() if p.ndim < 2
+        ]
         other_params = [
-            *model.first_layer.parameters(),
-            *model.last_layer.parameters(),
-            *model.guide_head.parameters(),
+            *[p for layer in model.first_layers for p in layer.parameters()],
+            *[p for layer in model.last_layers for p in layer.parameters()],
         ]
         optimizer = SingleDeviceMuonWithAuxAdam(
             [
