@@ -54,6 +54,7 @@ class RandomFourierFeaturesTargetToGuide(nn.Module):
         hidden_features: int,
         hidden_layers: int,
         out_features: int,
+        guide_hidden_features: int,
         guide_out_features: int,
         scale: float,
     ):
@@ -74,11 +75,14 @@ class RandomFourierFeaturesTargetToGuide(nn.Module):
 
         self.last_layer = nn.Linear(hidden_features, out_features)
 
-        self.guide_head = nn.Sequential(
-            nn.Linear(out_features + 2, hidden_features),
-            nn.ReLU(),
-            nn.Linear(hidden_features, guide_out_features),
-        )
+        if guide_hidden_features > 0:
+            self.guide_head = nn.Sequential(
+                nn.Linear(out_features + 2, guide_hidden_features),
+                nn.ReLU(),
+                nn.Linear(guide_hidden_features, guide_out_features),
+            )
+        else:
+            self.guide_head = nn.Linear(out_features + 2, guide_out_features)
 
         self.first_layers = [self.first_layer]
         self.middle_layers = [self.middle_layer]
