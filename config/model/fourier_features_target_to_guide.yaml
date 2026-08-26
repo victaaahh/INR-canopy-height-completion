@@ -4,6 +4,6 @@ fourier_features: 256
 hidden_features: 256
 hidden_layers: 3
 out_features: 1
-guide_hidden_features: 32
+guide_hidden_features: ${model.hidden_features}
 guide_out_features: 4
 scale: 6.3345
