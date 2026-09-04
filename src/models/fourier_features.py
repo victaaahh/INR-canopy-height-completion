@@ -107,13 +107,19 @@ class RandomFourierFeaturesTargetToGuideFF(nn.Module):
         hidden_features: int,
         hidden_layers: int,
         out_features: int,
+        guide_fourier_features: int,
         guide_hidden_features: int,
         guide_out_features: int,
         scale: float,
+        guide_scale: float,
     ):
         super().__init__()
         self.B = nn.Parameter(
             torch.randn(in_features, fourier_features) * scale, requires_grad=False
+        )
+        self.B_guide = nn.Parameter(
+            torch.randn(in_features, guide_fourier_features) * guide_scale,
+            requires_grad=False,
         )
 
         self.first_layer = nn.Sequential(
@@ -130,7 +136,9 @@ class RandomFourierFeaturesTargetToGuideFF(nn.Module):
 
         if guide_hidden_features > 0:
             self.guide_head = nn.Sequential(
-                nn.Linear(out_features + fourier_features * 2, guide_hidden_features),
+                nn.Linear(
+                    out_features + guide_fourier_features * 2, guide_hidden_features
+                ),
                 nn.ReLU(),
                 nn.Linear(guide_hidden_features, guide_out_features),
             )
@@ -145,10 +153,12 @@ class RandomFourierFeaturesTargetToGuideFF(nn.Module):
 
     @override
     def forward(self, coords: Tensor) -> tuple[Tensor, Tensor]:
-        ff0 = 2 * torch.pi * coords @ self.B
-        ff = torch.hstack((torch.cos(ff0), torch.sin(ff0)))
-        x = self.first_layer(ff)
+        ff_target = 2 * torch.pi * coords @ self.B
+        ff_target = torch.hstack((torch.cos(ff_target), torch.sin(ff_target)))
+        ff_guide = 2 * torch.pi * coords @ self.B_guide
+        ff_guide = torch.hstack((torch.cos(ff_guide), torch.sin(ff_guide)))
+        x = self.first_layer(ff_target)
         x = self.middle_layer(x)
         x_target = self.last_layer(x)
-        x_guide = self.guide_head(torch.hstack((ff, x_target)))
+        x_guide = self.guide_head(torch.hstack((ff_guide, x_target)))
         return x_target, x_guide
