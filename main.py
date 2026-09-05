@@ -315,6 +315,7 @@ def main(cfg: DictConfig):
                 full_image_metrics_interval=cfg.full_image_metrics_interval,
                 target_loss_weight=cfg.target_loss_weight,
                 guide_loss_weight=cfg.guide_loss_weight,
+                only_sparse_samples=cfg.stage1.only_sparse_samples,
             )
 
             (
@@ -357,6 +358,7 @@ def main(cfg: DictConfig):
                 full_image_metrics_interval=cfg.full_image_metrics_interval,
                 target_loss_weight=cfg.target_loss_weight,
                 guide_loss_weight=cfg.guide_loss_weight,
+                only_sparse_samples=cfg.stage2.only_sparse_samples,
             )
 
             (

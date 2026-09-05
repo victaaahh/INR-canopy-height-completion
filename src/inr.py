@@ -233,10 +233,17 @@ class SparseImageINR:
         self,
         target_loss_weight: float,
         guide_loss_weight: float,
+        only_sparse_samples: bool,
     ) -> tuple[float, float, float, Tensor, Tensor]:
         self.joint_optimizer.zero_grad()
-        full_target_output, guide_output = self.model(self.guide_coords)
-        target_output = full_target_output[self.train_mask.flatten()]
+        if only_sparse_samples:
+            coords = self.train_coords
+            target_output, guide_output = self.model(coords)
+            full_target_output = target_output
+        else:
+            coords = self.guide_coords
+            full_target_output, guide_output = self.model(coords)
+            target_output = full_target_output[self.train_mask.flatten()]
         target_loss = self.target_criterion(target_output, self.train_pixels)
         guide_loss = self.guide_criterion(guide_output, self.guide_pixels)
         total_loss = target_loss_weight * target_loss + guide_loss_weight * guide_loss
@@ -260,6 +267,7 @@ class SparseImageINR:
         full_image_metrics_interval: int,
         target_loss_weight: float | None,
         guide_loss_weight: float | None,
+        only_sparse_samples: bool,
     ) -> tuple[
         Tensor,
         Tensor | None,
@@ -336,9 +344,15 @@ class SparseImageINR:
                 assert target_loss_weight is not None and guide_loss_weight is not None
                 assert all_target_loss is not None and all_guide_loss is not None
                 loss, target_loss, guide_loss, full_target_output, guide_output = (
-                    self._fit_jointly_one_step(target_loss_weight, guide_loss_weight)
+                    self._fit_jointly_one_step(
+                        target_loss_weight, guide_loss_weight, only_sparse_samples
+                    )
                 )
-                target_output = full_target_output[self.train_mask.flatten()]
+                if only_sparse_samples:
+                    guide_output = None
+                    target_output = full_target_output
+                else:
+                    target_output = full_target_output[self.train_mask.flatten()]
                 all_target_loss[i] = target_loss
                 all_guide_loss[i] = guide_loss
             else:

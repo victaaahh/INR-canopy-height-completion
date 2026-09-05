@@ -15,6 +15,7 @@ stage1:
   save_guide_images: true
   save_running_target_metrics: true
   save_running_guide_metrics: true
+  only_sparse_samples: false
 
 stage2:
   fit: jointly # target, guide, jointly
@@ -23,6 +24,7 @@ stage2:
   save_guide_images: true
   save_running_target_metrics: true
   save_running_guide_metrics: true
+  only_sparse_samples: false
 
 device: cuda
 seed: 8182
