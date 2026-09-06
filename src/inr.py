@@ -240,12 +240,15 @@ class SparseImageINR:
             coords = self.train_coords
             target_output, guide_output = self.model(coords)
             full_target_output = target_output
+            guide_loss = self.guide_criterion(
+                guide_output, self.guide_pixels[self.train_mask.flatten()]
+            )
         else:
             coords = self.guide_coords
             full_target_output, guide_output = self.model(coords)
             target_output = full_target_output[self.train_mask.flatten()]
+            guide_loss = self.guide_criterion(guide_output, self.guide_pixels)
         target_loss = self.target_criterion(target_output, self.train_pixels)
-        guide_loss = self.guide_criterion(guide_output, self.guide_pixels)
         total_loss = target_loss_weight * target_loss + guide_loss_weight * guide_loss
         _ = total_loss.backward()
         self.joint_optimizer.step()
