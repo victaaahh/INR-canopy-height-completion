@@ -1,0 +1,8 @@
+_target_: src.models.RandomFourierFeaturesTargetToGuideBigHead
+in_features: 2
+fourier_features: 256
+hidden_features: 256
+hidden_layers: 3
+out_features: 1
+guide_out_features: 4
+scale: 6.3345
